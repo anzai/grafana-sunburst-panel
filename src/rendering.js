@@ -100,9 +100,11 @@ export default function link(scope, elem, attrs, ctrl) {
   */
 
   function addSunburst() {
-    if (data.length === 0) {
+    if (data.length === 0 || data[0].datapoints.length === 0) {
       return;
     }
+
+    // Prepare <svg> and <g>
     var elemWidth = elem.width();
     var elemHeight = elem.height();
     var margin = { top: 30, right: 10, bottom: 20, left: 10 };
@@ -134,6 +136,7 @@ export default function link(scope, elem, attrs, ctrl) {
         return d.values;
       });
 
+    // Set colors
     var color = function(d) {
       var colors;
 
@@ -170,19 +173,25 @@ export default function link(scope, elem, attrs, ctrl) {
       return d.color;
     };
 
-    //d3.csv("public/plugins/grafana-sunburst-panel/tornadoes.csv", function(error, dataset) {
+    // Load data
     d3.csv("dummy", function(error, dataset) {
+      var keys = _.keys(data[0].datapoints[0]);
+
+      var nest = d3.nest();
+      _.each(keys, function(key, i) {
+        if (i !== keys.length - 1) {
+          nest = nest.key(function(d) { return d[key]; });
+        } else {
+          nest = nest.rollup(function(leaves) {
+            return leaves[0][key];
+          });
+        }
+      });
+
+      var rootKey = "United States";
       var hierarchy = {
-        key: "United States",
-        values: d3.nest()
-          .key(function(d) { return d.region; })
-          .key(function(d) { return d.state; })
-          .key(function(d) { return d.county; })
-          .rollup(function(leaves) {
-            //return leaves.length;
-            return leaves[0].count;
-          })
-          .entries(data[0].datapoints)
+        key: rootKey,
+        values: nest.entries(data[0].datapoints)
       };
 
       var path = svg.selectAll("path")

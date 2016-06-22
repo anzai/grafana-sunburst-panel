@@ -207,11 +207,12 @@ export default function link(scope, elem, attrs, ctrl) {
         .on("mouseout", mouseout);
 
       var tooltip = svg.append("text")
-        .attr("font-size", 12)
+        .attr("font-size", 15)
+        .attr("style", "margin-top: 5px")
         .attr("fill", "#fff")
         .attr("fill-opacity", 0)
         .attr("text-anchor", "middle")
-        .attr("transform", "translate(" + 0 + "," + (12 + height / 2)  +")")
+        .attr("transform", "translate(" + 0 + "," + (20 + height / 2)  +")")
         .style("pointer-events", "none");
 
       function click(d) {
@@ -222,11 +223,20 @@ export default function link(scope, elem, attrs, ctrl) {
       };
 
       function mouseover(d) {
-        tooltip.text(
-          d.key + ": " +
-          d.value + " sighting" +
-          (d.value > 1 ? "s" : "")
-        )
+        var nodeArray = getNodeArray(d);
+
+        var key;
+        if (nodeArray.length > 0) {
+          var keys = _.map(nodeArray, function(node) {
+            return node.key;
+          });
+          key = keys.join(' > ');
+
+        } else {
+          key = d.key;
+        }
+
+        tooltip.text(key + ": " + d.value)
         .transition()
         .attr("fill-opacity", 1);
       };
@@ -267,6 +277,16 @@ export default function link(scope, elem, attrs, ctrl) {
             return arc(d);
           };
       };
+    }
+
+    function getNodeArray(d) {
+      var nodeArray = [];
+      var current = d;
+      while (current.parent) {
+        nodeArray.unshift(current);
+        current = current.parent;
+      }
+      return nodeArray;
     }
 
     /*

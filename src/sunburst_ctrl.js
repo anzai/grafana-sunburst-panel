@@ -26,22 +26,10 @@ export class SunburstCtrl extends MetricsPanelCtrl {
 
     var panelDefault = {
       graphType: 'bar',
-      styles: {
-        x: {
-            axis: 'X', type: 'number', unit: 'none', decimals: null
-        },
-        y: {
-            axis: 'Y', type: 'number', unit: 'none', decimals: null
-        },
-        z: {
-            axis: 'Z', type: 'number', unit: 'none', decimals: null
-        }
-      }
+      styles: {},
+      rootKey: 'root',
     };
     _.defaults(this.panel, panelDefault);
-    if (! this.panel.cameraPosition) {
-      this.resetCameraPosition();
-    }
 
     this.events.on('render', this.onRender.bind(this));
     this.events.on('data-received', this.onDataReceived.bind(this));
@@ -51,7 +39,7 @@ export class SunburstCtrl extends MetricsPanelCtrl {
   }
 
   onInitEditMode() {
-    this.addEditorTab('Options', 'public/plugins/grafana-graph3d-panel/editor.html', 2);
+    this.addEditorTab('Options', 'public/plugins/grafana-sunburst-panel/editor.html', 2);
   }
 
   onDataError() {
@@ -72,9 +60,17 @@ export class SunburstCtrl extends MetricsPanelCtrl {
     });
   }
 
+  setUnitFormat(style, subItem) {
+    style.unit = subItem.value;
+    this.render(this.data);
+  };
+
   onDataReceived(dataList) {
     this.series = dataList.map(this.seriesHandler.bind(this));
     this.data = this.parseSeries(this.series);
+
+    this.initStyles();
+
     this.render(this.data);
   }
 
@@ -87,31 +83,30 @@ export class SunburstCtrl extends MetricsPanelCtrl {
     return series;
   }
 
-  setUnitFormat(column, subItem) {
-    column.unit = subItem.value;
-    this.render(this.data);
-  };
+  initStyles() {
+    if (this.data.length === 0 || this.data[0].datapoints.length === 0) {
+      return;
+    }
 
-  resetCameraPosition() {
-    // See http://visjs.org/docs/graph3d/#Methods
-    this.panel.cameraPosition = {
-      horizontal: 1.0,
-      vertical:   0.5,
-      distance:   1.7
-    };
-    this.render(this.data);
-  }
+    var keys = _.keys(this.data[0].datapoints[0]);
 
-  loadCameraPosition() {
-    this.panel.cameraPosition = this.currentCameraPosition;
-  }
-
-  formatValue(value) {
-    return value;
+    var self = this;
+    var styles = {};
+    _.each(keys, function(key, i) {
+      if (self.panel.styles[key]) {
+        styles[key] = self.panel.styles[key];
+      } else {
+        var type = (i === keys.length - 1) ? 'number' : 'string';
+        styles[key] = {
+          type: 'string', unit: 'none', decimals: null
+        };
+      }
+    });
+    this.panel.styles = styles;
   }
 
   link(scope, elem, attrs, ctrl) {
-    this.graph3d = rendering(scope, elem, attrs, ctrl);
+    this.sunburst = rendering(scope, elem, attrs, ctrl);
   }
 }
 

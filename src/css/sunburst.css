@@ -1,0 +1,16 @@
+.sunburst-panel {
+    position: relative;
+    padding: 0;
+}
+.sunburst-tooltip {
+    text-align: center;
+    color: #222;
+    font-size: 13pt;
+}
+
+.sunburst-sidebar {
+    float: right;
+}
+.sunburst-legend {
+    visibility: hidden;
+}

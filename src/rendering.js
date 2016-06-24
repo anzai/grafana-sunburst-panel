@@ -86,9 +86,10 @@ export default function link(scope, elem, attrs, ctrl) {
     // Prepare <svg> and <g>
     var elemWidth = elem.width();
     var elemHeight = elem.height();
-    var margin = { top: 30, right: 10, bottom: 20, left: 10 };
+    var margin = { top: 10, right: 10, bottom: 10, left: 10 };
+    var tooltipHeight = 25;
     var width = elemWidth - margin.left - margin.right;
-    var height = elemHeight - margin.top - margin.bottom;
+    var height = elemHeight - margin.top - margin.bottom - tooltipHeight;
     var radius = Math.min(width, height) / 2;
 
     d3.select("#sunburst-panel-g-" + ctrl.panel.id).remove();
@@ -152,10 +153,9 @@ export default function link(scope, elem, attrs, ctrl) {
       return d.color;
     };
 
-    // Load data
     d3.csv("dummy", function(error, dataset) {
-      var hierarchy = createHierarchy(data[0].datapoints);
-
+      // Load data
+      var hierarchy = _createHierarchy(data[0].datapoints);
       var path = svg.selectAll("path")
         .data(partition.nodes(hierarchy))
         .enter()
@@ -168,15 +168,13 @@ export default function link(scope, elem, attrs, ctrl) {
         .on("mouseover", mouseover)
         .on("mouseout", mouseout);
 
-      var tooltip = svg.append("text")
-        .text(panel.rootKey + ': ' + formater[_.last(panel.nodeKeys)](hierarchy.value))
-        .attr("font-size", 15)
-        .attr("style", "margin-top: 5px")
-        .attr("fill", "#fff")
-        .attr("text-anchor", "middle")
-        .attr("transform", "translate(" + 0 + "," + (20 + height / 2)  +")")
-        .style("pointer-events", "none");
+      // Set tooltip
+      var valueFormater = formater[_.last(panel.nodeKeys)];
+      var tooltip = d3.select("#sunburst-panel-tooltip-" + ctrl.panel.id + ' > a')
+        .attr('href', panel.linkPrefix)
+        .text(panel.rootKey + ': ' + valueFormater(hierarchy.value));
 
+      // Set actions
       function click(d) {
         path.transition()
          .duration(750)
@@ -185,26 +183,37 @@ export default function link(scope, elem, attrs, ctrl) {
       };
 
       function mouseover(d) {
-        var nodeArray = getNodeArray(d);
+        var nodeArray = _getNodeArray(d);
 
-        var keyStr;
+        var nodePath = '';
+        var linkParams = [];
         if (nodeArray.length > 0) {
-          var keys = _.map(nodeArray, function(node, i) {
+          var formatedKeys = [];
+          _.each (nodeArray, function(node, i) {
             var key = panel.nodeKeys[i];
-            return formater[key](node.key)
+            var valueFormater = formater[key];
+            formatedKeys[i] = valueFormater(node.key)
+            linkParams[i] = key + '=' + node.key;
           });
-          keyStr = keys.join(' > ');
+
+          nodePath = formatedKeys.join(' > ');
 
         } else {
-          keyStr = panel.rootKey;
+          nodePath = panel.rootKey;
         }
 
         var key = _.last(panel.nodeKeys);
-        var value = formater[key](d.value);
+        var valueFormater = formater[key];
+        var value = valueFormater(d.value);
 
-        tooltip.text(keyStr + ": " + value)
-        .transition()
-        .attr("fill-opacity", 1);
+        var tooltipHref = (panel.linkPrefix) ?
+            panel.linkPrefix + '?' + linkParams.join('&') : null;
+
+        tooltip
+        .attr('href', tooltipHref)
+        .text(nodePath + ": " + value)
+          .transition()
+          .attr("fill-opacity", 1);
       };
 
       function mouseout() {
@@ -243,7 +252,7 @@ export default function link(scope, elem, attrs, ctrl) {
       };
     }
 
-    function createHierarchy(datapoints) {
+    function _createHierarchy(datapoints) {
       panel.nodeKeys = _.keys(datapoints[0]);
 
       var nest = d3.nest();
@@ -267,7 +276,7 @@ export default function link(scope, elem, attrs, ctrl) {
       return hierarchy;
     }
 
-    function getNodeArray(d) {
+    function _getNodeArray(d) {
       var nodeArray = [];
       var current = d;
       while (current.parent) {
@@ -276,6 +285,7 @@ export default function link(scope, elem, attrs, ctrl) {
       }
       return nodeArray;
     }
+
   }
 }
 

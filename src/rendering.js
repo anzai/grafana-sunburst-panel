@@ -1,3 +1,4 @@
+import './css/sunburst.css!';
 import _ from 'lodash';
 import $ from 'jquery';
 import moment from 'moment';
@@ -8,7 +9,7 @@ export default function link(scope, elem, attrs, ctrl) {
   var data, panel;
   var formater = [];
 
-  elem = elem.find('.sunburst-panel');
+  elem = elem.find('.sunburst');
 
   ctrl.events.on('render', function() {
     render();
@@ -92,13 +93,13 @@ export default function link(scope, elem, attrs, ctrl) {
     var height = elemHeight - margin.top - margin.bottom - tooltipHeight;
     var radius = Math.min(width, height) / 2;
 
-    d3.select("#sunburst-panel-g-" + ctrl.panel.id).remove();
+    d3.select("#sunburst-g-" + ctrl.panel.id).remove();
 
-    var svg = d3.select("#sunburst-panel-svg-" + ctrl.panel.id)
+    var svg = d3.select("#sunburst-svg-" + ctrl.panel.id)
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
     .append('g')
-      .attr('id', "sunburst-panel-g-" + ctrl.panel.id)
+      .attr('id', "sunburst-g-" + ctrl.panel.id)
       .attr("transform", "translate(" +
         (margin.left + width  / 2) + ", " +
         (margin.top  + height / 2) + ")"
@@ -122,7 +123,7 @@ export default function link(scope, elem, attrs, ctrl) {
 
       if (!d.parent) {
         colors = d3.scale.category10()
-          .domain(d3.range(0,10));
+          .domain(d3.range(0, 10));
         d.color = 'transparent';
 
       } else if (d.children) {
@@ -135,7 +136,7 @@ export default function link(scope, elem, attrs, ctrl) {
               startColor.toString(),
               endColor.toString()
           ])
-          .domain([0,d.children.length + 1]);
+          .domain([0, d.children.length + 1]);
       }
 
       if (d.children) {
@@ -170,7 +171,7 @@ export default function link(scope, elem, attrs, ctrl) {
 
       // Set tooltip
       var valueFormater = formater[_.last(panel.nodeKeys)];
-      var tooltip = d3.select("#sunburst-panel-tooltip-" + ctrl.panel.id + ' > a')
+      var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id + ' > a')
         .attr('href', panel.linkPrefix)
         .text(panel.rootKey + ': ' + valueFormater(hierarchy.value));
 
@@ -185,6 +186,7 @@ export default function link(scope, elem, attrs, ctrl) {
       function mouseover(d) {
         var nodeArray = _getNodeArray(d);
 
+        //console.log(nodeArray);
         var nodePath = '';
         var linkParams = [];
         if (nodeArray.length > 0) {
@@ -206,8 +208,11 @@ export default function link(scope, elem, attrs, ctrl) {
         var valueFormater = formater[key];
         var value = valueFormater(d.value);
 
-        var tooltipHref = (panel.linkPrefix) ?
-            panel.linkPrefix + '?' + linkParams.join('&') : null;
+        var tooltipHref = null;
+        if (panel.linkPrefix) {
+          var delimiter = (panel.linkPrefix.indexOf('\?') != -1) ? '&' : '?';
+          tooltipHref = panel.linkPrefix + delimiter + linkParams.join('&');
+        }
 
         tooltip
         .attr('href', tooltipHref)
@@ -285,7 +290,6 @@ export default function link(scope, elem, attrs, ctrl) {
       }
       return nodeArray;
     }
-
   }
 }
 

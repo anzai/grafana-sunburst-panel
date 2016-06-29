@@ -84,22 +84,10 @@ System.register(['app/plugins/sdk', 'lodash', 'app/core/utils/kbn', 'app/core/ti
 
           var panelDefault = {
             graphType: 'bar',
-            styles: {
-              x: {
-                axis: 'X', type: 'number', unit: 'none', decimals: null
-              },
-              y: {
-                axis: 'Y', type: 'number', unit: 'none', decimals: null
-              },
-              z: {
-                axis: 'Z', type: 'number', unit: 'none', decimals: null
-              }
-            }
+            styles: {},
+            rootKey: 'root'
           };
           _.defaults(_this.panel, panelDefault);
-          if (!_this.panel.cameraPosition) {
-            _this.resetCameraPosition();
-          }
 
           _this.events.on('render', _this.onRender.bind(_this));
           _this.events.on('data-received', _this.onDataReceived.bind(_this));
@@ -112,7 +100,7 @@ System.register(['app/plugins/sdk', 'lodash', 'app/core/utils/kbn', 'app/core/ti
         _createClass(SunburstCtrl, [{
           key: 'onInitEditMode',
           value: function onInitEditMode() {
-            this.addEditorTab('Options', 'public/plugins/grafana-graph3d-panel/editor.html', 2);
+            this.addEditorTab('Options', 'public/plugins/grafana-sunburst-panel/editor.html', 2);
           }
         }, {
           key: 'onDataError',
@@ -136,10 +124,19 @@ System.register(['app/plugins/sdk', 'lodash', 'app/core/utils/kbn', 'app/core/ti
             });
           }
         }, {
+          key: 'setUnitFormat',
+          value: function setUnitFormat(style, subItem) {
+            style.unit = subItem.value;
+            this.render(this.data);
+          }
+        }, {
           key: 'onDataReceived',
           value: function onDataReceived(dataList) {
             this.series = dataList.map(this.seriesHandler.bind(this));
             this.data = this.parseSeries(this.series);
+
+            this.initStyles();
+
             this.render(this.data);
           }
         }, {
@@ -153,36 +150,32 @@ System.register(['app/plugins/sdk', 'lodash', 'app/core/utils/kbn', 'app/core/ti
             return series;
           }
         }, {
-          key: 'setUnitFormat',
-          value: function setUnitFormat(column, subItem) {
-            column.unit = subItem.value;
-            this.render(this.data);
-          }
-        }, {
-          key: 'resetCameraPosition',
-          value: function resetCameraPosition() {
-            // See http://visjs.org/docs/graph3d/#Methods
-            this.panel.cameraPosition = {
-              horizontal: 1.0,
-              vertical: 0.5,
-              distance: 1.7
-            };
-            this.render(this.data);
-          }
-        }, {
-          key: 'loadCameraPosition',
-          value: function loadCameraPosition() {
-            this.panel.cameraPosition = this.currentCameraPosition;
-          }
-        }, {
-          key: 'formatValue',
-          value: function formatValue(value) {
-            return value;
+          key: 'initStyles',
+          value: function initStyles() {
+            if (this.data.length === 0 || this.data[0].datapoints.length === 0) {
+              return;
+            }
+
+            var keys = _.keys(this.data[0].datapoints[0]);
+
+            var self = this;
+            var styles = {};
+            _.each(keys, function (key, i) {
+              if (self.panel.styles[key]) {
+                styles[key] = self.panel.styles[key];
+              } else {
+                var type = i === keys.length - 1 ? 'number' : 'string';
+                styles[key] = {
+                  type: 'string', unit: 'none', decimals: null
+                };
+              }
+            });
+            this.panel.styles = styles;
           }
         }, {
           key: 'link',
           value: function link(scope, elem, attrs, ctrl) {
-            this.graph3d = rendering(scope, elem, attrs, ctrl);
+            this.sunburst = rendering(scope, elem, attrs, ctrl);
           }
         }]);
 

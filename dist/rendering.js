@@ -1,14 +1,16 @@
 'use strict';
 
-System.register(['lodash', 'jquery', 'moment', 'app/core/utils/kbn', './d3.v3.min'], function (_export, _context) {
+System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/utils/kbn', './d3.v3.min'], function (_export, _context) {
   "use strict";
 
   var _, $, moment, kbn, d3;
 
   function link(scope, elem, attrs, ctrl) {
-    var data, panel, position;
+    var data, panel;
+    var formater = [];
 
-    elem = elem.find('.sunburst-panel');
+    elem = elem.find('.sunburst');
+
     ctrl.events.on('render', function () {
       render();
       ctrl.renderingCompleted();
@@ -46,68 +48,60 @@ System.register(['lodash', 'jquery', 'moment', 'app/core/utils/kbn', './d3.v3.mi
       }
     }
 
-    /*
-    function getKey(arr, val) {
-      return parseInt(_.keys(arr).find(function(key) {
-        return arr[key] == val;
-      }));
-    }
-     function createColumnFormater(style) {
-      var defaultFormater = function(v) {
-        if (v === null || v === void 0 || v === undefined) {
-          return '';
-        }
-        if (_.isArray(v)) {
-          v = v.join(', ');
-        }
+    function createValueFormater(style) {
+      var defaultFormater = function defaultFormater(v) {
         return v;
       };
-       if (! style) {
+
+      if (!style) {
         return defaultFormater;
       }
-       switch (style.type) {
-      case 'date':
-        return v => {
-          if (_.isArray(v)) { v = v[0]; }
-          var date = moment(v);
-          if (ctrl.dashboard.isTimezoneUtc()) {
-            date = date.utc();
-          }
-          return date.format(style.dateFormat || 'YYYY-MM-DD HH:mm:ss');
-        };
-        break;
-       case 'number':
-        var valueFormater = kbn.valueFormats[style.unit];
-         return v =>  {
-          if (v === null || v === void 0) {
-            return '-';
-          }
-           if (_.isString(v)) {
-            return v;
-          }
-           return valueFormater(v, style.decimals, null);
-        };
-        break;
-       default:
-        return defaultFormater;
+
+      switch (style.type) {
+        case 'date':
+          var dateFormater = function dateFormater(v) {
+            v = parseFloat(v);
+            var date = moment(v);
+            if (ctrl.dashboard.isTimezoneUtc()) {
+              date = date.utc();
+            }
+            return date.format(style.dateFormat || 'YYYY-MM-DD HH:mm:ss');
+          };
+          return dateFormater;
+          break;
+
+        case 'number':
+          var numberFormater = function numberFormater(v) {
+            var valueFormater = kbn.valueFormats[style.unit];
+            v = parseFloat(v);
+            return valueFormater(v, style.decimals, null);
+          };
+          return numberFormater;
+          break;
+
+        default:
+          return defaultFormater;
       }
-     }
-    */
+    }
 
     function addSunburst() {
-      if (data.length === 0) {
+      if (data.length === 0 || data[0].datapoints.length === 0) {
         return;
       }
+
+      // Prepare <svg> and <g>
       var elemWidth = elem.width();
       var elemHeight = elem.height();
-      var margin = { top: 30, right: 10, bottom: 20, left: 10 };
-      var width = elemWidth - margin.left - margin.right;
-      var height = elemHeight - margin.top - margin.bottom;
+      var margin = { top: 10, right: 10, bottom: 10, left: 10 };
+      var tooltipHeight = 25;
+      var sidebarWidth = 100;
+      var width = elemWidth - margin.left - margin.right - sidebarWidth;
+      var height = elemHeight - margin.top - margin.bottom - tooltipHeight;
       var radius = Math.min(width, height) / 2;
 
-      d3.select("#sunburst-panel-g-" + ctrl.panel.id).remove();
+      d3.select("#sunburst-g-" + ctrl.panel.id).remove();
 
-      var svg = d3.select("#sunburst-panel-svg-" + ctrl.panel.id).attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append('g').attr('id', "sunburst-panel-g-" + ctrl.panel.id).attr("transform", "translate(" + (margin.left + width / 2) + ", " + (margin.top + height / 2) + ")");
+      var svg = d3.select("#sunburst-svg-" + ctrl.panel.id).attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).append('g').attr('id', "sunburst-g-" + ctrl.panel.id).attr("transform", "translate(" + (margin.left + width / 2) + ", " + (margin.top + height / 2) + ")");
 
       var x = d3.scale.linear().range([0, 2 * Math.PI]);
       var y = d3.scale.sqrt().range([0, radius]);
@@ -118,63 +112,67 @@ System.register(['lodash', 'jquery', 'moment', 'app/core/utils/kbn', './d3.v3.mi
         return d.values;
       });
 
-      var color = function color(d) {
-        var colors;
+      // Load data
+      var hierarchy = _createHierarchy(data[0].datapoints);
 
-        if (!d.parent) {
-          colors = d3.scale.category10().domain(d3.range(0, 10));
-          d.color = 'transparent';
-        } else if (d.children) {
-          var startColor = d3.hcl(d.color).darker(),
-              endColor = d3.hcl(d.color).brighter();
-
-          colors = d3.scale.linear().interpolate(d3.interpolateHcl).range([startColor.toString(), endColor.toString()]).domain([0, d.children.length + 1]);
-        }
-
-        if (d.children) {
-          d.children.map(function (child, i) {
-            return { value: child.value, idx: i };
-          }).sort(function (a, b) {
-            return b.value - a.value;
-          }).forEach(function (child, i) {
-            d.children[child.idx].color = colors(i);
-          });
-        }
-
-        return d.color;
-      };
-
-      //d3.csv("public/plugins/grafana-sunburst-panel/tornadoes.csv", function(error, dataset) {
       d3.csv("dummy", function (error, dataset) {
-        var hierarchy = {
-          key: "United States",
-          values: d3.nest().key(function (d) {
-            return d.region;
-          }).key(function (d) {
-            return d.state;
-          }).key(function (d) {
-            return d.county;
-          }).rollup(function (leaves) {
-            //return leaves.length;
-            return leaves[0].count;
-          }).entries(data[0].datapoints)
+        // Set colors
+        var color = function color(d) {
+          var colors;
+
+          if (!d.parent) {
+            var scale;
+
+            if (hierarchy.values.length < 10) {
+              scale = d3.scale.category10();
+            } else {
+              scale = d3.scale.category20();
+            }
+            colors = scale.domain(d3.range(0, 10));
+            d.color = 'transparent';
+          } else if (d.children) {
+            var startColor = d3.hcl(d.color).darker();
+            var endColor = d3.hcl(d.color).brighter();
+
+            colors = d3.scale.linear().interpolate(d3.interpolateHcl).range([startColor.toString(), endColor.toString()]).domain([0, d.children.length + 1]);
+          }
+
+          if (d.children) {
+            d.children.map(function (child, i) {
+              return { value: child.value, idx: i };
+            }).sort(function (a, b) {
+              return b.value - a.value;
+            }).forEach(function (child, i) {
+              d.children[child.idx].color = colors(i);
+            });
+          }
+
+          return d.color;
         };
 
+        // Draw
         var path = svg.selectAll("path").data(partition.nodes(hierarchy)).enter().append("path").attr("d", arc).attr("stroke", "#fff").attr("fill-rule", "evenodd").attr("fill", color).on("click", click).on("mouseover", mouseover).on("mouseout", mouseout);
 
-        var tooltip = svg.append("text").attr("font-size", 12).attr("fill", "#fff").attr("fill-opacity", 0).attr("text-anchor", "middle").attr("transform", "translate(" + 0 + "," + (12 + height / 2) + ")").style("pointer-events", "none");
+        // Set tooltip
+        var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id + ' > a').attr('href', panel.linkPrefix).text(panel.rootKey + ': ' + _formatValue(hierarchy.value, panel.nodeKeys.length - 1));
 
+        // Set legend
+        d3.select('#sunburst-toggle-' + ctrl.panel.id).on("click", toggleLegend);
+
+        // Set actions
         function click(d) {
           path.transition().duration(750).attrTween("d", arcTween(d));
+
           mouseout();
         };
 
         function mouseover(d) {
-          tooltip.text(d.key + ": " + d.value + " sighting" + (d.value > 1 ? "s" : "")).transition().attr("fill-opacity", 1);
+          _updateTooltip(d);
+          _updateLegend(d);
         };
 
         function mouseout() {
-          tooltip.transition().attr("fill-opacity", 0);
+          _removeLegend();
         };
       });
 
@@ -189,9 +187,9 @@ System.register(['lodash', 'jquery', 'moment', 'app/core/utils/kbn', './d3.v3.mi
       });
 
       function arcTween(d) {
-        var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
-            yd = d3.interpolate(y.domain(), [d.y, 1]),
-            yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
+        var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]);
+        var yd = d3.interpolate(y.domain(), [d.y, 1]);
+        var yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
 
         return function (d, i) {
           return i ? function (t) {
@@ -204,114 +202,130 @@ System.register(['lodash', 'jquery', 'moment', 'app/core/utils/kbn', './d3.v3.mi
         };
       }
 
-      /*
-      var formater = {
-          x: createColumnFormater(panel.styles.x),
-          y: createColumnFormater(panel.styles.y),
-          z: createColumnFormater(panel.styles.z)
-      };
-       var labels = _.pluck(data, 'label');
-       var datapoints = [];
-      datapoints.push(_.map(data[0].datapoints, function(dp) {
-        return formater.x(dp[1]);
-      }));
-      datapoints = datapoints.concat(_.map(data, function(serie) {
-        return _.map(serie.datapoints, function(dp) {
-          return dp[0];
-        });
-      }));
-       var valueLabels = _.map(datapoints, function(dp, i) {
-        if (i < 2) {
-          return _.uniq(dp);
-        }
-      });
-       // dataset
-      var graphdata = new vis.DataSet();
-      for (var i = 0; i < datapoints[0].length; i += 1) {
-        graphdata.add({
-          x: getKey(valueLabels[0], datapoints[0][i]),
-          y: getKey(valueLabels[1], datapoints[1][i]),
-          z: datapoints[2][i],
-          style: datapoints[2][i]
-        });
-      }
-       // prepare div for canvas
-      var plotDiv = document.createElement('div');
-       // css
-      var width = elem.width();
-      var height = elem.height();
-      $(plotDiv).css({
-        width: width + 'px',
-        height: height + 'px',
-        margin: 'auto',
-        position: 'relative'
-      });
-       var axisLabels = {
-          x: panel.styles.x.label || 'time',
-          y: panel.styles.y.label || labels[0],
-          z: panel.styles.z.label || labels[1]
-      };
-      var units = {
-          x: kbn.valueFormats[panel.styles.x.unit] || panel.styles.x.unit || '',
-          y: kbn.valueFormats[panel.styles.y.unit] || panel.styles.y.unit || '',
-          z: kbn.valueFormats[panel.styles.z.unit] || panel.styles.z.unit || ''
-      };
-       var options = {
-        width: width + 'px',
-        height: height + 'px',
-        axisColor: '#888888',
-         style:           panel.graphType,
-        showGrid:        true,
-        showShadow:      false,
-        showPerspective: panel.showPerspective || false,
-        verticalRatio:   panel.verticalRatio || 0.5,
-        keepAspectRatio: panel.keepAspectRatio || false,
-         xLabel: axisLabels.x,
-        yLabel: axisLabels.y,
-        zLabel: axisLabels.z,
-         xMin: panel.styles.x.min || null,
-        yMin: panel.styles.y.min || null,
-        zMin: panel.styles.z.min || null,
-         xMax: panel.styles.x.max || null,
-        yMax: panel.styles.y.max || null,
-        zMax: panel.styles.z.max || null,
-         xStep: panel.styles.x.step || null,
-        yStep: panel.styles.y.step || null,
-        zStep: panel.styles.z.step || null,
-         xValueLabel: function(key) {
-          return formater.x(valueLabels[0][key]);
-        },
-        yValueLabel: function(key) {
-          return formater.y(valueLabels[1][key]);
-        },
-        zValueLabel: function(key) {
-          return formater.z(key);
-        },
-         tooltip: function (point) {
-           return axisLabels.x + ': ' + formater.x(valueLabels[0][point.x]) + '<br>' +
-                  axisLabels.y + ': ' + formater.y(valueLabels[1][point.y]) + '<br>' +
-                  axisLabels.z + ': ' + '<b>' + formater.z(point.z) + '</b>';
-        }
-      };
-       for (var key in options) {
-          if (options[key] === null) {
-             delete options[key];
+      function _createHierarchy(datapoints) {
+        panel.nodeKeys = _.keys(datapoints[0]);
+
+        var nest = d3.nest();
+        _.each(panel.nodeKeys, function (key, depth) {
+          formater[depth] = createValueFormater(panel.styles[key]);
+
+          if (depth !== panel.nodeKeys.length - 1) {
+            nest = nest.key(function (d) {
+              return d[key];
+            });
+          } else {
+            nest = nest.rollup(function (leaves) {
+              return leaves[0][key];
+            });
           }
+        });
+
+        var hierarchy = {
+          key: panel.rootKey,
+          values: nest.entries(datapoints)
+        };
+
+        return hierarchy;
       }
-       // draw
-      var graph3d = new vis.Graph3d(plotDiv, graphdata, options);
-      graph3d.on('cameraPositionChange', onCameraPositionChange);
-      graph3d.setCameraPosition(panel.cameraPosition);
-       elem.html(plotDiv);
-      graph3d.redraw();
-      */
+
+      function _getNodeArray(d) {
+        var nodeArray = [];
+        var current = d;
+        while (current.parent) {
+          nodeArray.unshift(current);
+          current = current.parent;
+        }
+        return nodeArray;
+      }
+
+      function _formatValue(value, depth) {
+        if (formater[depth]) {
+          var valueFormater = formater[depth];
+          value = valueFormater(value);
+        }
+
+        return value;
+      }
+
+      function _updateTooltip(d) {
+        var nodeArray = _getNodeArray(d);
+
+        var nodePath = '';
+        var linkParams = [];
+        if (nodeArray.length > 0) {
+          var formatedKeys = [];
+          _.each(nodeArray, function (node, i) {
+            formatedKeys[i] = _formatValue(node.key, node.depth - 1);
+            linkParams[i] = panel.nodeKeys[i] + '=' + node.key;
+          });
+
+          nodePath = formatedKeys.join(' > ');
+        } else {
+          nodePath = panel.rootKey;
+        }
+
+        var value = _formatValue(d.value, panel.nodeKeys.length - 1);
+
+        var tooltipHref = null;
+        if (panel.linkPrefix) {
+          var delimiter = panel.linkPrefix.indexOf('\?') != -1 ? '&' : '?';
+          tooltipHref = panel.linkPrefix + delimiter + linkParams.join('&');
+        }
+
+        d3.select("#sunburst-tooltip-" + ctrl.panel.id + ' > a').attr('href', tooltipHref).text(nodePath + ": " + value).transition().attr("fill-opacity", 1);
+      }
+
+      function _removeLegend() {
+        d3.select('#sunburst-legend-' + ctrl.panel.id + ' > svg').remove();
+      }
+
+      function _updateLegend(d) {
+        _removeLegend();
+
+        if (d.values === undefined) {
+          return;
+        }
+        var colors = [];
+        _.each(d.values, function (node) {
+          colors[node.key] = node.color;
+        });
+
+        var li = {
+          w: 75, h: 30, s: 3, r: 3
+        };
+
+        var legend = d3.select('#sunburst-legend-' + ctrl.panel.id).append('svg').attr("width", li.w).attr("height", d3.keys(colors).length * (li.h + li.s));
+
+        var g = legend.selectAll("g").data(d3.entries(colors)).enter().append("svg:g").attr("transform", function (d, i) {
+          return "translate(0," + i * (li.h + li.s) + ")";
+        });
+
+        g.append("svg:rect").attr("rx", li.r).attr("ry", li.r).attr("width", li.w).attr("height", li.h).style("fill", function (d) {
+          return d.value;
+        });
+
+        g.append("svg:text").attr("x", li.w / 2).attr("y", li.h / 2).attr("dy", "0.35em").attr("text-anchor", "middle").style('font-size', '7').style('fill', '#fff').text(function (d) {
+          return _formatValue(d.key, d.depth);
+        });
+      }
+
+      function toggleLegend() {
+        var legend = d3.select('#sunburst-legend-' + ctrl.panel.id);
+        var checked = d3.select('#sunburst-sidebar-' + ctrl.panel.id).prop('checked');
+
+        if (checked) {
+          legend.style("visibility", "");
+        } else {
+          legend.style("visibility", "hidden");
+        }
+      }
     }
   }
 
   _export('default', link);
 
   return {
-    setters: [function (_lodash) {
+    setters: [function (_cssSunburstCss) {}, function (_lodash) {
       _ = _lodash.default;
     }, function (_jquery) {
       $ = _jquery.default;

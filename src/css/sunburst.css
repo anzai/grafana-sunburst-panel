@@ -10,7 +10,7 @@
 
 .sunburst-sidebar {
     float: right;
+    width: 80px;
 }
 .sunburst-legend {
-    visibility: hidden;
 }

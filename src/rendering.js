@@ -56,7 +56,7 @@ export default function link(scope, elem, attrs, ctrl) {
 
     switch (style.type) {
     case 'date':
-      return v => {
+      var dateFormater = function(v) {
         v = parseFloat(v);
         var date = moment(v);
         if (ctrl.dashboard.isTimezoneUtc()) {
@@ -64,14 +64,16 @@ export default function link(scope, elem, attrs, ctrl) {
         }
         return date.format(style.dateFormat || 'YYYY-MM-DD HH:mm:ss');
       };
+      return dateFormater;
       break;
 
     case 'number':
-      var valueFormater = kbn.valueFormats[style.unit];
-      return v =>  {
+      var numberFormater = function(v) {
+        var valueFormater = kbn.valueFormats[style.unit];
         v = parseFloat(v);
         return valueFormater(v, style.decimals, null);
       };
+      return numberFormater;
       break;
 
     default:
@@ -89,7 +91,8 @@ export default function link(scope, elem, attrs, ctrl) {
     var elemHeight = elem.height();
     var margin = { top: 10, right: 10, bottom: 10, left: 10 };
     var tooltipHeight = 25;
-    var width = elemWidth - margin.left - margin.right;
+    var sidebarWidth = 100;
+    var width = elemWidth - margin.left - margin.right - sidebarWidth;
     var height = elemHeight - margin.top - margin.bottom - tooltipHeight;
     var radius = Math.min(width, height) / 2;
 
@@ -117,46 +120,54 @@ export default function link(scope, elem, attrs, ctrl) {
         return d.values;
       });
 
-    // Set colors
-    var color = function(d) {
-      var colors;
-
-      if (!d.parent) {
-        colors = d3.scale.category10()
-          .domain(d3.range(0, 10));
-        d.color = 'transparent';
-
-      } else if (d.children) {
-        var startColor = d3.hcl(d.color).darker(),
-            endColor   = d3.hcl(d.color).brighter();
-
-        colors = d3.scale.linear()
-          .interpolate(d3.interpolateHcl)
-          .range([
-              startColor.toString(),
-              endColor.toString()
-          ])
-          .domain([0, d.children.length + 1]);
-      }
-
-      if (d.children) {
-        d.children.map(function(child, i) {
-          return { value: child.value, idx: i};
-        })
-        .sort(function(a,b) {
-          return b.value - a.value
-        })
-        .forEach(function(child, i) {
-          d.children[child.idx].color = colors(i);
-        });
-      }
-
-      return d.color;
-    };
+    // Load data
+    var hierarchy = _createHierarchy(data[0].datapoints);
 
     d3.csv("dummy", function(error, dataset) {
-      // Load data
-      var hierarchy = _createHierarchy(data[0].datapoints);
+      // Set colors
+      var color = function(d) {
+        var colors;
+
+        if (!d.parent) {
+          var scale;
+
+          if (hierarchy.values.length < 10) {
+            scale = d3.scale.category10();
+          } else {
+            scale = d3.scale.category20();
+          }
+          colors = scale.domain(d3.range(0, 10));
+          d.color = 'transparent';
+
+        } else if (d.children) {
+          var startColor = d3.hcl(d.color).darker();
+          var endColor   = d3.hcl(d.color).brighter();
+
+          colors = d3.scale.linear()
+            .interpolate(d3.interpolateHcl)
+            .range([
+              startColor.toString(),
+              endColor.toString()
+            ])
+            .domain([0, d.children.length + 1]);
+        }
+
+        if (d.children) {
+          d.children.map(function(child, i) {
+            return { value: child.value, idx: i};
+          })
+          .sort(function(a,b) {
+            return b.value - a.value
+          })
+          .forEach(function(child, i) {
+            d.children[child.idx].color = colors(i);
+          });
+        }
+
+        return d.color;
+      };
+
+      // Draw
       var path = svg.selectAll("path")
         .data(partition.nodes(hierarchy))
         .enter()
@@ -170,58 +181,30 @@ export default function link(scope, elem, attrs, ctrl) {
         .on("mouseout", mouseout);
 
       // Set tooltip
-      var valueFormater = formater[_.last(panel.nodeKeys)];
       var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id + ' > a')
         .attr('href', panel.linkPrefix)
-        .text(panel.rootKey + ': ' + valueFormater(hierarchy.value));
+        .text(panel.rootKey + ': ' + _formatValue(hierarchy.value, panel.nodeKeys.length - 1));
+
+      // Set legend
+      d3.select('#sunburst-toggle-' + ctrl.panel.id)
+        .on("click", toggleLegend);
 
       // Set actions
       function click(d) {
         path.transition()
          .duration(750)
          .attrTween("d", arcTween(d));
+
         mouseout();
       };
 
       function mouseover(d) {
-        var nodeArray = _getNodeArray(d);
-
-        //console.log(nodeArray);
-        var nodePath = '';
-        var linkParams = [];
-        if (nodeArray.length > 0) {
-          var formatedKeys = [];
-          _.each (nodeArray, function(node, i) {
-            var key = panel.nodeKeys[i];
-            var valueFormater = formater[key];
-            formatedKeys[i] = valueFormater(node.key)
-            linkParams[i] = key + '=' + node.key;
-          });
-
-          nodePath = formatedKeys.join(' > ');
-
-        } else {
-          nodePath = panel.rootKey;
-        }
-
-        var key = _.last(panel.nodeKeys);
-        var valueFormater = formater[key];
-        var value = valueFormater(d.value);
-
-        var tooltipHref = null;
-        if (panel.linkPrefix) {
-          var delimiter = (panel.linkPrefix.indexOf('\?') != -1) ? '&' : '?';
-          tooltipHref = panel.linkPrefix + delimiter + linkParams.join('&');
-        }
-
-        tooltip
-        .attr('href', tooltipHref)
-        .text(nodePath + ": " + value)
-          .transition()
-          .attr("fill-opacity", 1);
+        _updateTooltip(d);
+        _updateLegend(d);
       };
 
       function mouseout() {
+        _removeLegend();
       };
     });
 
@@ -261,10 +244,10 @@ export default function link(scope, elem, attrs, ctrl) {
       panel.nodeKeys = _.keys(datapoints[0]);
 
       var nest = d3.nest();
-      _.each(panel.nodeKeys, function(key, i) {
-        formater[key] = createValueFormater(panel.styles[key]);
+      _.each(panel.nodeKeys, function(key, depth) {
+        formater[depth] = createValueFormater(panel.styles[key]);
 
-        if (i !== panel.nodeKeys.length - 1) {
+        if (depth !== panel.nodeKeys.length - 1) {
           nest = nest.key(function(d) { return d[key]; });
         } else {
           nest = nest.rollup(function(leaves) {
@@ -289,6 +272,109 @@ export default function link(scope, elem, attrs, ctrl) {
         current = current.parent;
       }
       return nodeArray;
+    }
+
+    function _formatValue(value, depth) {
+      if (formater[depth]) {
+        var valueFormater = formater[depth];
+        value = valueFormater(value);
+      }
+
+      return value;
+    }
+
+    function _updateTooltip(d) {
+      var nodeArray = _getNodeArray(d);
+
+      var nodePath = '';
+      var linkParams = [];
+      if (nodeArray.length > 0) {
+        var formatedKeys = [];
+        _.each (nodeArray, function(node, i) {
+          formatedKeys[i] = _formatValue(node.key, node.depth - 1)
+          linkParams[i] = panel.nodeKeys[i] + '=' + node.key;
+        });
+
+        nodePath = formatedKeys.join(' > ');
+
+      } else {
+        nodePath = panel.rootKey;
+      }
+
+      var value = _formatValue(d.value, panel.nodeKeys.length - 1);
+
+      var tooltipHref = null;
+      if (panel.linkPrefix) {
+        var delimiter = (panel.linkPrefix.indexOf('\?') != -1) ? '&' : '?';
+        tooltipHref = panel.linkPrefix + delimiter + linkParams.join('&');
+      }
+
+      d3.select("#sunburst-tooltip-" + ctrl.panel.id + ' > a')
+      .attr('href', tooltipHref)
+      .text(nodePath + ": " + value)
+        .transition()
+        .attr("fill-opacity", 1);
+    }
+
+    function _removeLegend() {
+      d3.select('#sunburst-legend-' + ctrl.panel.id + ' > svg').remove();
+    }
+
+    function _updateLegend(d) {
+      _removeLegend();
+
+      if (d.values === undefined) {
+        return;
+      }
+      var colors = [];
+      _.each(d.values, function(node) {
+        colors[node.key] = node.color ;
+      });
+
+      var li = {
+        w: 75, h: 30, s: 3, r: 3
+      };
+
+      var legend = d3.select('#sunburst-legend-' + ctrl.panel.id)
+          .append('svg')
+          .attr("width", li.w)
+          .attr("height", d3.keys(colors).length * (li.h + li.s));
+
+      var g = legend.selectAll("g")
+          .data(d3.entries(colors))
+          .enter().append("svg:g")
+          .attr("transform", function(d, i) {
+                  return "translate(0," + i * (li.h + li.s) + ")";
+               });
+
+      g.append("svg:rect")
+          .attr("rx", li.r)
+          .attr("ry", li.r)
+          .attr("width", li.w)
+          .attr("height", li.h)
+          .style("fill", function(d) { return d.value; });
+
+      g.append("svg:text")
+          .attr("x", li.w / 2)
+          .attr("y", li.h / 2)
+          .attr("dy", "0.35em")
+          .attr("text-anchor", "middle")
+          .style('font-size', '7')
+          .style('fill', '#fff')
+          .text(function(d) {
+              return _formatValue(d.key, d.depth);
+          });
+    }
+
+    function toggleLegend() {
+      var legend = d3.select('#sunburst-legend-' + ctrl.panel.id);
+      var checked = d3.select('#sunburst-sidebar-' + ctrl.panel.id).prop('checked');
+
+      if (checked) {
+        legend.style("visibility", "");
+      } else {
+        legend.style("visibility", "hidden");
+      }
     }
   }
 }

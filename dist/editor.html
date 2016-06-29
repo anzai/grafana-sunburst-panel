@@ -16,86 +16,34 @@
 				</ul>
 				<div class="clearfix"></div>
 			</div>
-		</div>
-	</div>
-</div>
 
-<div class="ctrl-row">
-	<div class="section">
-		<h5>Camera Position
-			<input type="button" value="Reset position" ng-click="ctrl.resetCameraPosition()">
-			<input type="button" value="Load current posotion" ng-click="ctrl.loadCameraPosition()">
-		</h5>
-
-		<div class="tight-form-container">
 			<div class="tight-form">
 				<ul class="tight-form-list">
-					<li class="tight-form-item" style="width: 80px">Horizontal</li>
+					<li class="tight-form-item" style="width: 80px">Link prefix</li>
 					<li>
-						<input type="text" class="tight-form-input" style="width: 100px"
-							ng-model="ctrl.panel.cameraPosition.horizontal" ng-change="ctrl.render()">
-					</li>
-					<li class="tight-form-item" style="width: 80px">Vertical</li>
-					<li>
-						<input type="text" class="tight-form-input" style="width: 100px"
-							ng-model="ctrl.panel.cameraPosition.vertical" ng-change="ctrl.render()">
-					</li>
-					<li class="tight-form-item" style="width: 80px">Distance</li>
-					<li>
-						<input type="text" class="tight-form-input" style="width: 100px"
-							ng-model="ctrl.panel.cameraPosition.distance" ng-change="ctrl.render()">
+						<input type="text" class="tight-form-input" style="width: 300px"
+							ng-model="ctrl.panel.linkPrefix" ng-change="ctrl.render()">
 					</li>
 				</ul>
 				<div class="clearfix"></div>
 			</div>
 		</div>
 	</div>
-</div>
-
-<div class="ctrl-row">
-	<div class="section">
-		<h5>Style</h5>
-
-		<div class="tight-form-container">
-			<div class="tight-form">
-				<ul class="tight-form-list">
-					<li class="tight-form-item">
-						<input type="checkbox" value="true"
-							ng-model="ctrl.panel.keepAspectRatio" ng-change="ctrl.render()">
-						Keep aspect ratio
-					</li>
-					<li class="tight-form-item">
-						<input type="checkbox" value="true"
-							ng-model="ctrl.panel.showPerspective" ng-change="ctrl.render()">
-						Show perspective
-					</li>
-					<li class="tight-form-item">Vertical ratio (0.1 - 1.0)</li>
-					<li>
-						<input type="text" class="tight-form-input" style="width: 100px"
-							ng-model="ctrl.panel.verticalRatio" ng-change="ctrl.render()">
-					</li>
-				</ul>
-				<div class="clearfix"></div>
-			</div>
 		</div>
 	</div>
 </div>
 
 <div class="ctrl-row">
 	<div class="section">
-		<h5>Label/Unit/Min/Max</h5>
+		<h5>Nodes</h5>
 
 		<div class="tight-form-container">
-			<div ng-repeat="style in ctrl.panel.styles">
+			<div ng-repeat="(key, style) in ctrl.panel.styles">
 				<div class="tight-form">
 
 					<ul class="tight-form-list">
-						<li class="tight-form-item" style="font-weight: bold">{{style.axis}} axis</li>
-
-						<li class="tight-form-item">Label</li>
-						<li>
-							<input type="text" class="tight-form-input"
-								ng-model="style.label" ng-change="ctrl.render()">
+						<li class="tight-form-item" style="width: 200px; font-weight: bold">
+							{{key}}
 						</li>
 
 						<li class="tight-form-item">Type</li>
@@ -111,7 +59,7 @@
 					<div class="clearfix"></div>
 
 					<ul class="tight-form-list" ng-if="style.type === 'date'">
-						<li class="tight-form-item text-right" style="width: 93px">Format</li>
+						<li class="tight-form-item text-right" style="width: 200px">Format</li>
 						<li>
 							<select class="input-small tight-form-input"
 								ng-model="style.format"
@@ -123,7 +71,7 @@
 					</ul>
 
 					<ul class="tight-form-list" ng-if="style.type === 'number'">
-						<li class="tight-form-item text-right" style="width: 93px">Unit</li>
+						<li class="tight-form-item text-right" style="width: 200px">Unit</li>
 						<li class="dropdown" style="width: 150px"
 							ng-model="style.unit"
 							dropdown-typeahead="ctrl.unitFormats"
@@ -135,28 +83,24 @@
 							<input type="number" class="input-mini tight-form-input"
 								ng-model="style.decimals" ng-change="ctrl.render()" ng-model-onblur>
 						</li>
-
-						<li class="tight-form-item text-right">Min</li>
-						<li>
-							<input type="text" class="tight-form-input" style="width: 100px"
-							ng-model="style.min" ng-change="ctrl.render()">
-						</li>
-
-						<li class="tight-form-item text-right">Max</li>
-						<li>
-							<input type="text" class="tight-form-input" style="width: 100px"
-							ng-model="style.max" ng-change="ctrl.render()">
-						</li>
-
-						<li class="tight-form-item text-right">Step</li>
-						<li>
-							<input type="text" class="tight-form-input" style="width: 100px"
-							ng-model="style.step" ng-change="ctrl.render()">
-						</li>
 					</ul>
 					<div class="clearfix"></div>
 				</div>
 
+			</div>
+
+			<div class="tight-form">
+				<ul class="tight-form-list">
+					<li class="tight-form-item" style="width: 200px; font-weight: bold">
+						Root
+					</li>
+					<li class="tight-form-item">Key</li>
+					<li>
+						<input type="text" class="tight-form-input" style="width: 200px"
+							ng-model="ctrl.panel.rootKey" ng-change="ctrl.render()">
+					</li>
+				</ul>
+				<div class="clearfix"></div>
 			</div>
 		</div>
 	</div>

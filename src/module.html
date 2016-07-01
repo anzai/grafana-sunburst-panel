@@ -1,19 +1,20 @@
 <div class="graph-wrapper" ng-class="{'graph-legend-rightside': ctrl.panel.legendType == 'Right side'}">
     <div class="graph-canvas-wrapper">
 
+        <!--
         <div class="sunburst-sidebar" id="sunburst-sidebar-{{ctrl.panel.id}}">
             <input type="checkbox" id="sunburst-toggle-{{ctrl.panel.id}}"> Legend<br/>
             <div class="sunburst-legend" id="sunburst-legend-{{ctrl.panel.id}}">
                 <svg></svg>
             </div>
         </div>
+        -->
 
         <div class="sunburst" id="sunburst-div-{{ctrl.panel.id}}">
             <svg id="sunburst-svg-{{ctrl.panel.id}}"></svg>
-        </div>
 
-        <div class="sunburst-tooltip" id="sunburst-tooltip-{{ctrl.panel.id}}">
-            <a></a>
+            <div class="sunburst-tooltip hidden" id="sunburst-tooltip-{{ctrl.panel.id}}">
+            </div>
         </div>
     </div>
 </div>

@@ -7,7 +7,7 @@ import d3 from './d3.v3.min';
 
 export default function link(scope, elem, attrs, ctrl) {
   var data, panel;
-  var formater = [];
+  var formaters = [];
 
   elem = elem.find('.sunburst');
 
@@ -15,6 +15,21 @@ export default function link(scope, elem, attrs, ctrl) {
     render();
     ctrl.renderingCompleted();
   });
+
+  function render() {
+    if (!ctrl.data) { return; }
+
+    data = ctrl.data;
+    panel = ctrl.panel;
+
+    if (setElementHeight()) {
+      addSunburst();
+    }
+  }
+
+  /* ----------------------------------------------------------------------- */
+  /* Draw                                                                    */
+  /* ----------------------------------------------------------------------- */
 
   function setElementHeight() {
     try {
@@ -34,73 +49,38 @@ export default function link(scope, elem, attrs, ctrl) {
     }
   }
 
-  function render() {
-    if (!ctrl.data) { return; }
-
-    data = ctrl.data;
-    panel = ctrl.panel;
-
-    if (setElementHeight()) {
-      addSunburst();
-    }
-  }
-
-  function createValueFormater(style) {
-    var defaultFormater = function(v) {
-      return v;
-    };
-
-    if (! style) {
-      return defaultFormater;
-    }
-
-    switch (style.type) {
-    case 'date':
-      var dateFormater = function(v) {
-        v = parseFloat(v);
-        var date = moment(v);
-        if (ctrl.dashboard.isTimezoneUtc()) {
-          date = date.utc();
-        }
-        return date.format(style.dateFormat || 'YYYY-MM-DD HH:mm:ss');
-      };
-      return dateFormater;
-      break;
-
-    case 'number':
-      var numberFormater = function(v) {
-        var valueFormater = kbn.valueFormats[style.unit];
-        v = parseFloat(v);
-        return valueFormater(v, style.decimals, null);
-      };
-      return numberFormater;
-      break;
-
-    default:
-      return defaultFormater;
-    }
-  }
-
   function addSunburst() {
     if (data.length === 0 || data[0].datapoints.length === 0) {
       return;
     }
+    var rawData = data[0].datapoints;
+    var rawHierarchy = createHierarchy(rawData);
+
+    panel.nodeKeys = _.keys(rawData[0]);
 
     // Prepare <svg> and <g>
     var elemWidth = elem.width();
     var elemHeight = elem.height();
     var margin = { top: 10, right: 10, bottom: 10, left: 10 };
-    var tooltipHeight = 25;
-    var sidebarWidth = 100;
-    var width = elemWidth - margin.left - margin.right - sidebarWidth;
+    var tooltipHeight = 0; //25;
+    var tooltipWidth = 0; //maxLength * 10;
+    var sidebarWidth = tooltipWidth + 10;
+    var width = elemWidth - margin.left - margin.right - tooltipWidth;
     var height = elemHeight - margin.top - margin.bottom - tooltipHeight;
     var radius = Math.min(width, height) / 2;
+
+    d3.select("#sunburst-sidebar-" + ctrl.panel.id)
+      .attr('style', 'float: right; width: ' + sidebarWidth + 'px');
 
     d3.select("#sunburst-g-" + ctrl.panel.id).remove();
 
     var svg = d3.select("#sunburst-svg-" + ctrl.panel.id)
       .attr("width", width + margin.left + margin.right)
       .attr("height", height + margin.top + margin.bottom)
+      .on("click", function() {
+        d3.select("#sunburst-tooltip-" + ctrl.panel.id)
+          .classed('hidden', true);
+      })
     .append('g')
       .attr('id', "sunburst-g-" + ctrl.panel.id)
       .attr("transform", "translate(" +
@@ -120,18 +100,15 @@ export default function link(scope, elem, attrs, ctrl) {
         return d.values;
       });
 
-    // Load data
-    var hierarchy = _createHierarchy(data[0].datapoints);
-
-    d3.csv("dummy", function(error, dataset) {
+    d3.csv("", function(error, dataset) {
       // Set colors
       var color = function(d) {
         var colors;
 
-        if (!d.parent) {
+        if (! d.parent) {
           var scale;
 
-          if (hierarchy.values.length < 10) {
+          if (rawHierarchy.values.length < 10) {
             scale = d3.scale.category10();
           } else {
             scale = d3.scale.category20();
@@ -169,9 +146,9 @@ export default function link(scope, elem, attrs, ctrl) {
 
       // Draw
       var path = svg.selectAll("path")
-        .data(partition.nodes(hierarchy))
+        .data(partition.nodes(rawHierarchy))
         .enter()
-        .append("path")
+      .append("path")
         .attr("d", arc)
         .attr("stroke", "#fff")
         .attr("fill-rule", "evenodd")
@@ -179,15 +156,6 @@ export default function link(scope, elem, attrs, ctrl) {
         .on("click", click)
         .on("mouseover", mouseover)
         .on("mouseout", mouseout);
-
-      // Set tooltip
-      var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id + ' > a')
-        .attr('href', panel.linkPrefix)
-        .text(panel.rootKey + ': ' + _formatValue(hierarchy.value, panel.nodeKeys.length - 1));
-
-      // Set legend
-      d3.select('#sunburst-toggle-' + ctrl.panel.id)
-        .on("click", toggleLegend);
 
       // Set actions
       function click(d) {
@@ -199,12 +167,11 @@ export default function link(scope, elem, attrs, ctrl) {
       };
 
       function mouseover(d) {
-        _updateTooltip(d);
-        _updateLegend(d);
+        var position = d3.mouse(d3.select('#sunburst-div-' + ctrl.panel.id).node());
+        _updateTooltip(d, position);
       };
 
-      function mouseout() {
-        _removeLegend();
+      function mouseout(d) {
       };
     });
 
@@ -240,142 +207,139 @@ export default function link(scope, elem, attrs, ctrl) {
       };
     }
 
-    function _createHierarchy(datapoints) {
-      panel.nodeKeys = _.keys(datapoints[0]);
-
-      var nest = d3.nest();
-      _.each(panel.nodeKeys, function(key, depth) {
-        formater[depth] = createValueFormater(panel.styles[key]);
-
-        if (depth !== panel.nodeKeys.length - 1) {
-          nest = nest.key(function(d) { return d[key]; });
-        } else {
-          nest = nest.rollup(function(leaves) {
-            return leaves[0][key];
-          });
-        }
-      });
-
-      var hierarchy = {
-        key: panel.rootKey,
-        values: nest.entries(datapoints)
-      };
-
-      return hierarchy;
-    }
-
-    function _getNodeArray(d) {
-      var nodeArray = [];
-      var current = d;
-      while (current.parent) {
-        nodeArray.unshift(current);
-        current = current.parent;
-      }
-      return nodeArray;
-    }
-
-    function _formatValue(value, depth) {
-      if (formater[depth]) {
-        var valueFormater = formater[depth];
-        value = valueFormater(value);
-      }
-
-      return value;
-    }
-
-    function _updateTooltip(d) {
-      var nodeArray = _getNodeArray(d);
-
-      var nodePath = '';
+    function _updateTooltip(d, position) {
+      var lines = [];
       var linkParams = [];
-      if (nodeArray.length > 0) {
-        var formatedKeys = [];
-        _.each (nodeArray, function(node, i) {
-          formatedKeys[i] = _formatValue(node.key, node.depth - 1)
-          linkParams[i] = panel.nodeKeys[i] + '=' + node.key;
+
+      if (d.depth > 0) {
+        var ancectors = getAncestors(d);
+        _.each(ancectors, function(ancector, i) {
+          lines.push(
+              '<li style="border-left: 3px solid ' + ancector.color + '">' +
+              panel.nodeKeys[i] + ': ' + format(ancector.key, ancector.depth - 1) +
+              '</li>'
+          );
+          linkParams.push(ancector.key);
         });
-
-        nodePath = formatedKeys.join(' > ');
-
       } else {
-        nodePath = panel.rootKey;
+        lines.push('root: ' + panel.rootKey);
       }
 
-      var value = _formatValue(d.value, panel.nodeKeys.length - 1);
+      lines.push(
+        '<li style="border-left: 3px solid ' + d.color + '">' +
+        _.last(panel.nodeKeys) + ': ' + format(d.value, panel.nodeKeys.length - 1) +
+        '</li>'
+      );
 
-      var tooltipHref = null;
       if (panel.linkPrefix) {
         var delimiter = (panel.linkPrefix.indexOf('\?') != -1) ? '&' : '?';
-        tooltipHref = panel.linkPrefix + delimiter + linkParams.join('&');
+        var tooltipHref = panel.linkPrefix + delimiter + linkParams.join('&');
+        lines.push('<li><a href="' + tooltipHref + '" target="_blank">[link]</a></li>');
       }
 
-      d3.select("#sunburst-tooltip-" + ctrl.panel.id + ' > a')
-      .attr('href', tooltipHref)
-      .text(nodePath + ": " + value)
-        .transition()
-        .attr("fill-opacity", 1);
+      var text = lines.join('<br>');
+
+      var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id)
+          .style("left", (position[0] + 10) + "px")
+          .style("top",  (position[1] + 10) + "px")
+          .classed("hidden", false);
+
+      tooltip.select('ul').remove();
+
+      tooltip
+          .append('ul')
+          .html(text);
     }
 
-    function _removeLegend() {
-      d3.select('#sunburst-legend-' + ctrl.panel.id + ' > svg').remove();
+    function _hideTooltip() {
+      d3.select("#sunburst-tooltip-" + ctrl.panel.id)
+        .classed('hidden', true);
+    }
+  }
+
+  /* ----------------------------------------------------------------------- */
+  /* Functions                                                               */
+  /* ----------------------------------------------------------------------- */
+
+  function createValueFormater(style) {
+    var defaultFormater = function(v) {
+      return v;
+    };
+
+    if (! style) {
+      return defaultFormater;
     }
 
-    function _updateLegend(d) {
-      _removeLegend();
-
-      if (d.values === undefined) {
-        return;
-      }
-      var colors = [];
-      _.each(d.values, function(node) {
-        colors[node.key] = node.color ;
-      });
-
-      var li = {
-        w: 75, h: 30, s: 3, r: 3
+    switch (style.type) {
+    case 'date':
+      var dateFormater = function(v) {
+        v = parseFloat(v);
+        var date = moment(v);
+        if (ctrl.dashboard.isTimezoneUtc()) {
+          date = date.utc();
+        }
+        return date.format(style.dateFormat || 'YYYY-MM-DD HH:mm:ss');
       };
+      return dateFormater;
+      break;
 
-      var legend = d3.select('#sunburst-legend-' + ctrl.panel.id)
-          .append('svg')
-          .attr("width", li.w)
-          .attr("height", d3.keys(colors).length * (li.h + li.s));
+    case 'number':
+      var numberFormater = function(v) {
+        var valueFormater = kbn.valueFormats[style.unit];
+        v = parseFloat(v);
+        return valueFormater(v, style.decimals, null);
+      };
+      return numberFormater;
+      break;
 
-      var g = legend.selectAll("g")
-          .data(d3.entries(colors))
-          .enter().append("svg:g")
-          .attr("transform", function(d, i) {
-                  return "translate(0," + i * (li.h + li.s) + ")";
-               });
-
-      g.append("svg:rect")
-          .attr("rx", li.r)
-          .attr("ry", li.r)
-          .attr("width", li.w)
-          .attr("height", li.h)
-          .style("fill", function(d) { return d.value; });
-
-      g.append("svg:text")
-          .attr("x", li.w / 2)
-          .attr("y", li.h / 2)
-          .attr("dy", "0.35em")
-          .attr("text-anchor", "middle")
-          .style('font-size', '7')
-          .style('fill', '#fff')
-          .text(function(d) {
-              return _formatValue(d.key, d.depth);
-          });
+    default:
+      return defaultFormater;
     }
+  }
 
-    function toggleLegend() {
-      var legend = d3.select('#sunburst-legend-' + ctrl.panel.id);
-      var checked = d3.select('#sunburst-sidebar-' + ctrl.panel.id).prop('checked');
+  function createHierarchy(datapoints) {
+    var nest = d3.nest();
+    _.each(panel.nodeKeys, function(key, depth) {
+      // Prepare formaters
+      formaters[depth] = createValueFormater(panel.styles[key]);
 
-      if (checked) {
-        legend.style("visibility", "");
+      // Prepare nest
+      if (depth !== panel.nodeKeys.length - 1) {
+        nest = nest.key(function(d) { return d[key]; });
       } else {
-        legend.style("visibility", "hidden");
+        nest = nest.rollup(function(leaves) {
+          return leaves[0][key];
+        });
       }
+    });
+
+    var rtn = {
+      key: panel.rootKey,
+      values: nest.entries(datapoints)
+    };
+
+    return rtn;
+  }
+
+  function format(value, depth) {
+    var rtn = value;
+
+    if (formaters[depth]) {
+      var valueFormater = formaters[depth];
+      rtn = valueFormater(value);
     }
+
+    return rtn;
+  }
+
+  function getAncestors(node) {
+    var rtn = [];
+    var current = node;
+    while (current.parent) {
+      rtn.unshift(current);
+      current = current.parent;
+    }
+    return rtn;
   }
 }
 

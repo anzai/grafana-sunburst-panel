@@ -29,10 +29,6 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
       }
     }
 
-    /* ----------------------------------------------------------------------- */
-    /* Draw                                                                    */
-    /* ----------------------------------------------------------------------- */
-
     function setElementHeight() {
       try {
         var height = ctrl.height || panel.height || ctrl.row.height;
@@ -53,35 +49,14 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
     }
 
     function addSunburst() {
+      // Prepare data
       if (data.length === 0 || data[0].datapoints.length === 0) {
         return;
       }
       var rawData = data[0].datapoints;
-      var rawHierarchy = createHierarchy(rawData);
+      var hierarchy = createHierarchy(rawData);
 
       panel.nodeKeys = _.keys(rawData[0]);
-
-      // Prepare <svg> and <g>
-      var elemWidth = elem.width();
-      var elemHeight = elem.height();
-      var margin = { top: 10, right: 10, bottom: 10, left: 10 };
-      var tooltipHeight = 0; //25;
-      var tooltipWidth = 0; //maxLength * 10;
-      var sidebarWidth = tooltipWidth + 10;
-      var width = elemWidth - margin.left - margin.right - tooltipWidth;
-      var height = elemHeight - margin.top - margin.bottom - tooltipHeight;
-      var radius = Math.min(width, height) / 2;
-
-      d3.select("#sunburst-sidebar-" + ctrl.panel.id).attr('style', 'float: right; width: ' + sidebarWidth + 'px');
-
-      d3.select("#sunburst-g-" + ctrl.panel.id).remove();
-
-      var svg = d3.select("#sunburst-svg-" + ctrl.panel.id).attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).on("click", function () {
-        d3.select("#sunburst-tooltip-" + ctrl.panel.id).classed('hidden', true);
-      }).append('g').attr('id', "sunburst-g-" + ctrl.panel.id).attr("transform", "translate(" + (margin.left + width / 2) + ", " + (margin.top + height / 2) + ")");
-
-      var x = d3.scale.linear().range([0, 2 * Math.PI]);
-      var y = d3.scale.sqrt().range([0, radius]);
 
       var partition = d3.layout.partition().children(function (d) {
         return Array.isArray(d.values) ? d.values : null;
@@ -89,58 +64,63 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
         return d.values;
       });
 
-      d3.csv("", function (error, dataset) {
-        // Set colors
-        var color = function color(d) {
-          var colors;
+      // Configure graph size
+      var elemWidth = elem.width();
+      var elemHeight = elem.height();
+      var margin = { top: 10, right: 10, bottom: 10, left: 10 };
+      var width = elemWidth - margin.left - margin.right;
+      var height = elemHeight - margin.top - margin.bottom;
+      var radius = Math.min(width, height) / 2;
 
-          if (!d.parent) {
-            var scale;
+      // Configure actions
+      var color = function color(d) {
+        var colors;
 
-            if (rawHierarchy.values.length < 10) {
-              scale = d3.scale.category10();
-            } else {
-              scale = d3.scale.category20();
-            }
-            colors = scale.domain(d3.range(0, 10));
-            d.color = 'transparent';
-          } else if (d.children) {
-            var startColor = d3.hcl(d.color).darker();
-            var endColor = d3.hcl(d.color).brighter();
+        if (!d.parent) {
+          var scale;
 
-            colors = d3.scale.linear().interpolate(d3.interpolateHcl).range([startColor.toString(), endColor.toString()]).domain([0, d.children.length + 1]);
+          if (hierarchy.values.length < 10) {
+            scale = d3.scale.category10();
+          } else {
+            scale = d3.scale.category20();
           }
+          colors = scale.domain(d3.range(0, 10));
+          d.color = 'transparent';
+        } else if (d.children) {
+          var startColor = d3.hcl(d.color).darker();
+          var endColor = d3.hcl(d.color).brighter();
 
-          if (d.children) {
-            d.children.map(function (child, i) {
-              return { value: child.value, idx: i };
-            }).sort(function (a, b) {
-              return b.value - a.value;
-            }).forEach(function (child, i) {
-              d.children[child.idx].color = colors(i);
-            });
-          }
+          colors = d3.scale.linear().interpolate(d3.interpolateHcl).range([startColor.toString(), endColor.toString()]).domain([0, d.children.length + 1]);
+        }
 
-          return d.color;
-        };
+        if (d.children) {
+          d.children.map(function (child, i) {
+            return { value: child.value, idx: i };
+          }).sort(function (a, b) {
+            return b.value - a.value;
+          }).forEach(function (child, i) {
+            d.children[child.idx].color = colors(i);
+          });
+        }
 
-        // Draw
-        var path = svg.selectAll("path").data(partition.nodes(rawHierarchy)).enter().append("path").attr("d", arc).attr("stroke", "#fff").attr("fill-rule", "evenodd").attr("fill", color).on("click", click).on("mouseover", mouseover).on("mouseout", mouseout);
+        return d.color;
+      };
 
-        // Set actions
-        function click(d) {
-          path.transition().duration(750).attrTween("d", arcTween(d));
+      var mouseout = function mouseout(d) {};
 
-          mouseout();
-        };
+      var click = function click(d) {
+        svg.selectAll("path").transition().duration(750).attrTween("d", arcTween(d));
 
-        function mouseover(d) {
-          var position = d3.mouse(d3.select('#sunburst-div-' + ctrl.panel.id).node());
-          _updateTooltip(d, position);
-        };
+        mouseout();
+      };
 
-        function mouseout(d) {};
-      });
+      var mouseover = function mouseover(d) {
+        var position = d3.mouse(d3.select('#sunburst-div-' + ctrl.panel.id).node());
+        updateTooltip(d, position);
+      };
+
+      var x = d3.scale.linear().range([0, 2 * Math.PI]);
+      var y = d3.scale.sqrt().range([0, radius]);
 
       var arc = d3.svg.arc().startAngle(function (d) {
         return Math.max(0, Math.min(2 * Math.PI, x(d.x)));
@@ -152,7 +132,7 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
         return Math.max(0, y(d.y + d.dy));
       });
 
-      function arcTween(d) {
+      var arcTween = function arcTween(d) {
         var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]);
         var yd = d3.interpolate(y.domain(), [d.y, 1]);
         var yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
@@ -166,50 +146,44 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
             return arc(d);
           };
         };
-      }
+      };
 
-      function _updateTooltip(d, position) {
-        var lines = [];
-        var linkParams = [];
-        var tooltipHref = panel.linkTemplate;
+      // Draw graph
+      d3.select("#sunburst-g-" + ctrl.panel.id).remove();
 
-        var list = [];
-
-        if (d.depth > 0) {
-          var ancectors = getAncestors(d);
-          _.each(ancectors, function (ancector, i) {
-            lines.push('<li style="border-left: 3px solid ' + ancector.color + '">' + panel.nodeKeys[i] + ': ' + format(ancector.key, ancector.depth - 1) + '</li>');
-
-            if (panel.linkTemplate) {
-              tooltipHref = tooltipHref.replace('\$' + String(i + 1), ancector.key);
-            }
-          });
-        } else {
-          lines.push('<li>root: ' + panel.rootKey + '</li>');
-        }
-
-        var style = d.color === 'transparent' ? '' : ' style="border-left: 3px solid ' + d.color + '"';
-        lines.push('<li' + style + '>' + _.last(panel.nodeKeys) + ': ' + format(d.value, panel.nodeKeys.length - 1) + '</li>');
-
-        if (panel.linkTemplate) {
-          tooltipHref = tooltipHref.replace(/\/\$\d*/g, '');
-          lines.push('<li><a href="' + tooltipHref + '" target="_blank">[ link ]</a></li>');
-        }
-
-        var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id).style("left", position[0] + "px").style("top", position[1] + "px").classed("hidden", false);
-
-        tooltip.select('ul').remove();
-        tooltip.html('<ul>' + lines.join("\n") + '</ul>');
-      }
-
-      function _hideTooltip() {
+      var svg = d3.select("#sunburst-svg-" + ctrl.panel.id).attr("width", width + margin.left + margin.right).attr("height", height + margin.top + margin.bottom).on("click", function () {
         d3.select("#sunburst-tooltip-" + ctrl.panel.id).classed('hidden', true);
-      }
+      }).append('g').attr('id', "sunburst-g-" + ctrl.panel.id).attr("transform", "translate(" + (margin.left + width / 2) + ", " + (margin.top + height / 2) + ")");
+
+      var path = svg.selectAll("path").data(partition.nodes(hierarchy)).enter().append("path").attr("d", arc).attr("stroke", "#fff").attr("fill-rule", "evenodd").attr("fill", color).on("click", click).on("mouseover", mouseover).on("mouseout", mouseout);
     }
 
-    /* ----------------------------------------------------------------------- */
-    /* Functions                                                               */
-    /* ----------------------------------------------------------------------- */
+    // Functions
+    function createHierarchy(datapoints) {
+      var nest = d3.nest();
+      _.each(panel.nodeKeys, function (key, depth) {
+        // Prepare formaters
+        formaters[depth] = createValueFormater(panel.styles[key]);
+
+        // Prepare nest
+        if (depth !== panel.nodeKeys.length - 1) {
+          nest = nest.key(function (d) {
+            return d[key];
+          });
+        } else {
+          nest = nest.rollup(function (leaves) {
+            return leaves[0][key];
+          });
+        }
+      });
+
+      var rtn = {
+        key: panel.rootKey,
+        values: nest.entries(datapoints)
+      };
+
+      return rtn;
+    }
 
     function createValueFormater(style) {
       var defaultFormater = function defaultFormater(v) {
@@ -247,32 +221,6 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
       }
     }
 
-    function createHierarchy(datapoints) {
-      var nest = d3.nest();
-      _.each(panel.nodeKeys, function (key, depth) {
-        // Prepare formaters
-        formaters[depth] = createValueFormater(panel.styles[key]);
-
-        // Prepare nest
-        if (depth !== panel.nodeKeys.length - 1) {
-          nest = nest.key(function (d) {
-            return d[key];
-          });
-        } else {
-          nest = nest.rollup(function (leaves) {
-            return leaves[0][key];
-          });
-        }
-      });
-
-      var rtn = {
-        key: panel.rootKey,
-        values: nest.entries(datapoints)
-      };
-
-      return rtn;
-    }
-
     function format(value, depth) {
       var rtn = value;
 
@@ -292,6 +240,44 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
         current = current.parent;
       }
       return rtn;
+    }
+
+    function updateTooltip(d, position) {
+      var lines = [];
+      var linkParams = [];
+      var tooltipHref = panel.linkTemplate;
+
+      var list = [];
+
+      if (d.depth > 0) {
+        var ancectors = getAncestors(d);
+        _.each(ancectors, function (ancector, i) {
+          lines.push('<li style="border-left: 3px solid ' + ancector.color + '">' + panel.nodeKeys[i] + ': ' + format(ancector.key, ancector.depth - 1) + '</li>');
+
+          if (panel.linkTemplate) {
+            tooltipHref = tooltipHref.replace('\$' + String(i + 1), ancector.key);
+          }
+        });
+      } else {
+        lines.push('<li>root: ' + panel.rootKey + '</li>');
+      }
+
+      var style = d.color === 'transparent' ? '' : ' style="border-left: 3px solid ' + d.color + '"';
+      lines.push('<li' + style + '>' + _.last(panel.nodeKeys) + ': ' + format(d.value, panel.nodeKeys.length - 1) + '</li>');
+
+      if (panel.linkTemplate) {
+        tooltipHref = tooltipHref.replace(/\/\$\d*/g, '');
+        lines.push('<li><a href="' + tooltipHref + '" target="_blank">[ link ]</a></li>');
+      }
+
+      var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id).style("left", position[0] + "px").style("top", position[1] + "px").classed("hidden", false);
+
+      tooltip.select('ul').remove();
+      tooltip.html('<ul>' + lines.join("\n") + '</ul>');
+    }
+
+    function hideTooltip() {
+      d3.select("#sunburst-tooltip-" + ctrl.panel.id).classed('hidden', true);
     }
   }
 

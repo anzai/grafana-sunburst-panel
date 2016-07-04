@@ -171,32 +171,35 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
       function _updateTooltip(d, position) {
         var lines = [];
         var linkParams = [];
+        var tooltipHref = panel.linkTemplate;
+
+        var list = [];
 
         if (d.depth > 0) {
           var ancectors = getAncestors(d);
           _.each(ancectors, function (ancector, i) {
             lines.push('<li style="border-left: 3px solid ' + ancector.color + '">' + panel.nodeKeys[i] + ': ' + format(ancector.key, ancector.depth - 1) + '</li>');
-            linkParams.push(ancector.key);
+
+            if (panel.linkTemplate) {
+              tooltipHref = tooltipHref.replace('\$' + String(i + 1), ancector.key);
+            }
           });
         } else {
-          lines.push('root: ' + panel.rootKey);
+          lines.push('<li>root: ' + panel.rootKey + '</li>');
         }
 
-        lines.push('<li style="border-left: 3px solid ' + d.color + '">' + _.last(panel.nodeKeys) + ': ' + format(d.value, panel.nodeKeys.length - 1) + '</li>');
+        var style = d.color === 'transparent' ? '' : ' style="border-left: 3px solid ' + d.color + '"';
+        lines.push('<li' + style + '>' + _.last(panel.nodeKeys) + ': ' + format(d.value, panel.nodeKeys.length - 1) + '</li>');
 
-        if (panel.linkPrefix) {
-          var delimiter = panel.linkPrefix.indexOf('\?') != -1 ? '&' : '?';
-          var tooltipHref = panel.linkPrefix + delimiter + linkParams.join('&');
-          lines.push('<li><a href="' + tooltipHref + '" target="_blank">[link]</a></li>');
+        if (panel.linkTemplate) {
+          tooltipHref = tooltipHref.replace(/\/\$\d*/g, '');
+          lines.push('<li><a href="' + tooltipHref + '" target="_blank">[ link ]</a></li>');
         }
 
-        var text = lines.join('<br>');
-
-        var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id).style("left", position[0] + 10 + "px").style("top", position[1] + 10 + "px").classed("hidden", false);
+        var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id).style("left", position[0] + "px").style("top", position[1] + "px").classed("hidden", false);
 
         tooltip.select('ul').remove();
-
-        tooltip.append('ul').html(text);
+        tooltip.html('<ul>' + lines.join("\n") + '</ul>');
       }
 
       function _hideTooltip() {

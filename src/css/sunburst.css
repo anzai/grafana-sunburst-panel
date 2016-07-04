@@ -26,11 +26,10 @@
 }
 
 .sunburst-tooltip ul li {
-    line-height: 100%;
     list-style: none;
     border-left: #ccc 3px solid;
     padding-left: 7px;
-    margin-bottom: 0px;
+    margin-bottom: 1px;
 }
 
 .hidden {

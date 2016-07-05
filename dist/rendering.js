@@ -171,8 +171,8 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
             return d[key];
           });
         } else {
-          nest = nest.rollup(function (leaves) {
-            return leaves[0][key];
+          nest = nest.rollup(function (v) {
+            return v[0][key];
           });
         }
       });
@@ -252,28 +252,42 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
       if (d.depth > 0) {
         var ancectors = getAncestors(d);
         _.each(ancectors, function (ancector, i) {
-          lines.push('<li style="border-left: 3px solid ' + ancector.color + '">' + panel.nodeKeys[i] + ': ' + format(ancector.key, ancector.depth - 1) + '</li>');
+          lines.push('<th style="border-left: 3px solid ' + ancector.color + '">' + panel.nodeKeys[i] + '</th>' + '<td>' + format(ancector.key, ancector.depth - 1) + '</td>');
 
           if (panel.linkTemplate) {
             tooltipHref = tooltipHref.replace('\$' + String(i + 1), ancector.key);
           }
         });
       } else {
-        lines.push('<li>root: ' + panel.rootKey + '</li>');
+        lines.push('<th>root</th><td>' + panel.rootKey + '</td>');
       }
 
+      var key = _.last(panel.nodeKeys);
       var style = d.color === 'transparent' ? '' : ' style="border-left: 3px solid ' + d.color + '"';
-      lines.push('<li' + style + '>' + _.last(panel.nodeKeys) + ': ' + format(d.value, panel.nodeKeys.length - 1) + '</li>');
+      lines.push('<th' + style + '>sum of ' + key + '</th>' + '<td>' + format(d.value, panel.nodeKeys.length - 1) + '</td>');
+
+      if (d.children && ancectors) {
+        var childDepth = d.children[0].depth;
+
+        var avg = d3.mean(d.children, function (child) {
+          return child.value;
+        });
+        lines.push('<th' + style + '>average of ' + key + '</th>' + '<td>' + format(avg, childDepth) + '</td>');
+      }
 
       if (panel.linkTemplate) {
         tooltipHref = tooltipHref.replace(/\/\$\d*/g, '');
-        lines.push('<li><a href="' + tooltipHref + '" target="_blank">[ link ]</a></li>');
+        lines.push('<th>link</th>' + '<td><a href="' + tooltipHref + '" target="_blank">' + tooltipHref + '</a></td>');
       }
 
       var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id).style("left", position[0] + "px").style("top", position[1] + "px").classed("hidden", false);
 
-      tooltip.select('ul').remove();
-      tooltip.html('<ul>' + lines.join("\n") + '</ul>');
+      lines = _.map(lines, function (l) {
+        return '<tr>' + l + '</tr>';
+      });
+
+      tooltip.select('table').remove();
+      tooltip.html('<table>' + lines.join("\n") + '</table>');
     }
 
     function hideTooltip() {

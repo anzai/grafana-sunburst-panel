@@ -324,16 +324,13 @@ export default function link(scope, elem, attrs, ctrl) {
         }
       });
 
-    if (panel.linkTemplate) {
-      tooltipHref = tooltipHref.replace(/\/\$\d*/g, '');
-    }
-
     var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id)
       .style("left", position[0] + "px")
       .style("top",  position[1] + "px")
       .classed("hidden", false);
 
-    tooltip.select('table').remove();
+    tooltip.selectAll('table').remove();
+    tooltip.selectAll('p').remove();
 
     var table = tooltip.append('table');
     var thead = table.append('thead');
@@ -356,6 +353,16 @@ export default function link(scope, elem, attrs, ctrl) {
       tr.append('td').text(l.avg);
       tr.append('td').text(l.rate);
     });
+
+    if (panel.linkTemplate) {
+      tooltipHref = tooltipHref.replace(/\/\$\d*/g, '');
+
+      tooltip.append('p')
+        .append('a')
+        .attr('href', tooltipHref)
+        .attr('target', '_blank')
+        .text('[ link ]');
+    }
   }
 
   function hideTooltip() {

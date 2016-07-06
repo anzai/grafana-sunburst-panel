@@ -15,6 +15,7 @@
 .sunburst-tooltip table {
     border-collapse: collapse;
     border-spacing: 2px;
+    margin: 0px;
 }
 .sunburst-tooltip thead td {
     text-align: center;
@@ -27,6 +28,12 @@
 }
 .sunburst-tooltip tbody td {
     padding: 0px 10px;
+    text-align: right;
+}
+
+.sunburst-tooltip p {
+    margin-top: 5px;
+    margin-bottom: 5px;
     text-align: right;
 }
 

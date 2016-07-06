@@ -71,6 +71,7 @@ export default function link(scope, elem, attrs, ctrl) {
     var width = elemWidth - margin.left - margin.right;
     var height = elemHeight - margin.top - margin.bottom;
     var radius = Math.min(width, height) / 2;
+    var topDepth = 0;
 
     // Configure actions
     var color = function(d) {
@@ -115,10 +116,53 @@ export default function link(scope, elem, attrs, ctrl) {
       return d.color;
     };
 
+    function prepareTooltip(d, position) {
+      var tableRows = { ancectors: [], node: [], children: [] };
+      var linkParams = [];
+      var tooltipHref = panel.linkTemplate;
+      var totalValue = d.value;
+
+      // d's ancectors
+      var ancectors = getAncestors(d);
+      if (ancectors.length > 0) {
+        if (ancectors[topDepth]) {
+          totalValue = ancectors[topDepth].value;
+        }
+
+        _.each(ancectors, function(node, i) {
+          tableRows.ancectors.push(
+            tooltipLine(node, (topDepth <= node.depth) ? totalValue : null)
+          );
+
+          if (panel.linkTemplate) {
+            tooltipHref = tooltipHref.replace('\$' + String(i + 1), node.key);
+          }
+        });
+      }
+
+      // d itself
+      tableRows.node.push(tooltipLine(d, totalValue));
+
+      // d's Children
+      if (d.children && d.children.length > 0) {
+        _.each(d.children, function(node, i) {
+          tableRows.children.push(tooltipLine(node, totalValue));
+        });
+      }
+
+      return {
+        tableRows: tableRows,
+        tooltipHref: tooltipHref,
+        position: { x: position[0], y: position[1] }
+      };
+    }
+
     var mouseout = function(d) {
     };
 
     var click = function(d) {
+      topDepth = d.depth;
+
       svg.selectAll("path")
        .transition()
        .duration(750)
@@ -129,7 +173,8 @@ export default function link(scope, elem, attrs, ctrl) {
 
     var mouseover = function(d) {
       var position = d3.mouse(d3.select('#sunburst-div-' + ctrl.panel.id).node());
-      updateTooltip(d, position);
+      var tooltipData = prepareTooltip(d, position);
+      updateTooltip(tooltipData);
     };
 
     var x = d3.scale.linear().range([0, 2 * Math.PI]);
@@ -276,7 +321,9 @@ export default function link(scope, elem, attrs, ctrl) {
 
   function getAncestors(node) {
     var rtn = [];
-    var current = node;
+    var current = node.parent;
+    if (! current) { return []; }
+
     while (current.parent) {
       rtn.unshift(current);
       current = current.parent;
@@ -294,17 +341,17 @@ export default function link(scope, elem, attrs, ctrl) {
     return rtn;
   }
 
-  function tooltipLine(node, i, totalValue) {
+  function tooltipLine(node, totalValue) {
       var avg = (node.children) ?
         node.value / node.children.length : node.value;
-      var rate = floorPercent(node.value / totalValue);
+      var rate = (totalValue !== null) ?
+        String(floorPercent(node.value / totalValue)) + '%' : '----';
 
       var line = {
         key:   format(node.key, node.depth),
         value: format(node.value, null),
         avg:   format(avg, null),
-        rate:  String(rate) + '%',
-        group: panel.nodeKeys[i],
+        rate:  rate,
         depth: node.depth,
         color: node.color
       }
@@ -312,32 +359,10 @@ export default function link(scope, elem, attrs, ctrl) {
       return line;
   }
 
-  function updateTooltip(d, position) {
-    var tableRows = { ancectors: [], children: [] };
-    var linkParams = [];
-    var tooltipHref = panel.linkTemplate;
-
-    // d's ancectors
-    var ancectors = getAncestors(d);
-    var totalValue = ancectors[0].value;
-    _.each(ancectors, function(node, i) {
-      tableRows.ancectors.push(tooltipLine(node, i, totalValue));
-
-      if (panel.linkTemplate) {
-        tooltipHref = tooltipHref.replace('\$' + String(i + 1), node.key);
-      }
-    });
-
-    // d's Children
-    if (d.children) {
-      _.each(d.children, function(node, i) {
-        tableRows.children.push(tooltipLine(node, i, totalValue));
-      });
-    }
-
+  function updateTooltip(data) {
     var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id)
-      .style("left", position[0] + "px")
-      .style("top",  position[1] + "px")
+      .style("left", data.position.x + "px")
+      .style("top",  data.position.y + "px")
       .classed("hidden", false);
 
     tooltip.selectAll('table').remove();
@@ -355,13 +380,13 @@ export default function link(scope, elem, attrs, ctrl) {
     .append('td')
       .text(function(d) { return d; });
 
-    _.each(tableRows, function(rows, key) {
+    _.each(data.tableRows, function(rows, key) {
       _.each(rows, function(row, i) {
         var tr = tbody.append('tr');
 
         tr.append('td').text('- ' + row.key)
           .style({
-            'font-weight': (key === 'ancectors' && i === rows.length - 1) ?
+            'font-weight': (key === 'node' && i === rows.length - 1) ?
                            'bold' : 'normal',
             'padding-left': (row.depth * 10) + 'px',
             'border-left' : '3px solid ' + row.color,
@@ -375,7 +400,7 @@ export default function link(scope, elem, attrs, ctrl) {
 
     // Link
     if (panel.linkTemplate) {
-      tooltipHref = tooltipHref.replace(/\/\$\d*/g, '');
+      var tooltipHref = data.tooltipHref.replace(/\/\$\d*/g, '');
 
       tooltip.append('p')
         .append('a')

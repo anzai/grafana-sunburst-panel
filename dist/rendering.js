@@ -256,34 +256,45 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
       return rtn;
     }
 
+    function tooltipLine(node, i, totalValue) {
+      var avg = node.children ? node.value / node.children.length : node.value;
+      var rate = floorPercent(node.value / totalValue);
+
+      var line = {
+        key: format(node.key, node.depth),
+        value: format(node.value, null),
+        avg: format(avg, null),
+        rate: String(rate) + '%',
+        group: panel.nodeKeys[i],
+        depth: node.depth,
+        color: node.color
+      };
+
+      return line;
+    }
+
     function updateTooltip(d, position) {
-      var lines = [];
+      var tableRows = { ancectors: [], children: [] };
       var linkParams = [];
       var tooltipHref = panel.linkTemplate;
 
+      // d's ancectors
       var ancectors = getAncestors(d);
       var totalValue = ancectors[0].value;
-
-      _.each(ancectors, function (ancector, i) {
-        var avg = ancector.children ? ancector.value / ancector.children.length : ancector.value;
-        var rate = floorPercent(ancector.value / totalValue);
-
-        var line = {
-          key: format(ancector.key, ancector.depth),
-          value: format(ancector.value, null),
-          avg: format(avg, null),
-          rate: String(rate) + '%',
-          group: panel.nodeKeys[i],
-          depth: ancector.depth,
-          color: ancector.color
-        };
-
-        lines.push(line);
+      _.each(ancectors, function (node, i) {
+        tableRows.ancectors.push(tooltipLine(node, i, totalValue));
 
         if (panel.linkTemplate) {
-          tooltipHref = tooltipHref.replace('\$' + String(i + 1), ancector.key);
+          tooltipHref = tooltipHref.replace('\$' + String(i + 1), node.key);
         }
       });
+
+      // d's Children
+      if (d.children) {
+        _.each(d.children, function (node, i) {
+          tableRows.children.push(tooltipLine(node, i, totalValue));
+        });
+      }
 
       var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id).style("left", position[0] + "px").style("top", position[1] + "px").classed("hidden", false);
 
@@ -299,15 +310,23 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
         return d;
       });
 
-      _.each(lines, function (l) {
-        var tr = tbody.append('tr');
+      _.each(tableRows, function (rows, key) {
+        _.each(rows, function (row, i) {
+          var tr = tbody.append('tr');
 
-        tr.append('th').text(l.key).style({ 'border-left-color': l.color });
-        tr.append('td').text(l.value);
-        tr.append('td').text(l.avg);
-        tr.append('td').text(l.rate);
+          tr.append('td').text('- ' + row.key).style({
+            'font-weight': key === 'ancectors' && i === rows.length - 1 ? 'bold' : 'normal',
+            'padding-left': row.depth * 10 + 'px',
+            'border-left': '3px solid ' + row.color,
+            'text-align': 'left'
+          });
+          tr.append('td').text(row.value);
+          tr.append('td').text(row.avg);
+          tr.append('td').text(row.rate);
+        });
       });
 
+      // Link
       if (panel.linkTemplate) {
         tooltipHref = tooltipHref.replace(/\/\$\d*/g, '');
 

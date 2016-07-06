@@ -163,7 +163,7 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
       var nest = d3.nest();
       _.each(panel.nodeKeys, function (key, depth) {
         // Prepare formaters
-        formaters[depth] = createValueFormater(panel.styles[key]);
+        formaters[depth + 1] = createValueFormater(panel.styles[key]);
 
         // Prepare nest
         if (depth !== panel.nodeKeys.length - 1) {
@@ -224,6 +224,10 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
     function format(value, depth) {
       var rtn = value;
 
+      if (depth === null) {
+        depth = formaters.length - 1;
+      }
+
       if (formaters[depth]) {
         var valueFormater = formaters[depth];
         rtn = valueFormater(value);
@@ -239,6 +243,16 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
         rtn.unshift(current);
         current = current.parent;
       }
+      rtn.unshift(current);
+      return rtn;
+    }
+
+    function floorPercent(value) {
+      // Format like "12.34"
+      var rtn = String(Math.floor(value * 10000) / 100);
+      if (rtn === '100') {
+        rtn = '100.00';
+      }
       return rtn;
     }
 
@@ -247,47 +261,55 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
       var linkParams = [];
       var tooltipHref = panel.linkTemplate;
 
-      var list = [];
+      var ancectors = getAncestors(d);
+      var totalValue = ancectors[0].value;
 
-      if (d.depth > 0) {
-        var ancectors = getAncestors(d);
-        _.each(ancectors, function (ancector, i) {
-          lines.push('<th style="border-left: 3px solid ' + ancector.color + '">' + panel.nodeKeys[i] + '</th>' + '<td>' + format(ancector.key, ancector.depth - 1) + '</td>');
+      _.each(ancectors, function (ancector, i) {
+        var avg = ancector.children ? ancector.value / ancector.children.length : ancector.value;
+        var rate = floorPercent(ancector.value / totalValue);
 
-          if (panel.linkTemplate) {
-            tooltipHref = tooltipHref.replace('\$' + String(i + 1), ancector.key);
-          }
-        });
-      } else {
-        lines.push('<th>root</th><td>' + panel.rootKey + '</td>');
-      }
+        var line = {
+          key: format(ancector.key, ancector.depth),
+          value: format(ancector.value, null),
+          avg: format(avg, null),
+          rate: String(rate) + '%',
+          group: panel.nodeKeys[i],
+          depth: ancector.depth,
+          color: ancector.color
+        };
 
-      var key = _.last(panel.nodeKeys);
-      var style = d.color === 'transparent' ? '' : ' style="border-left: 3px solid ' + d.color + '"';
-      lines.push('<th' + style + '>sum of ' + key + '</th>' + '<td>' + format(d.value, panel.nodeKeys.length - 1) + '</td>');
+        lines.push(line);
 
-      if (d.children && ancectors) {
-        var childDepth = d.children[0].depth;
-
-        var avg = d3.mean(d.children, function (child) {
-          return child.value;
-        });
-        lines.push('<th' + style + '>average of ' + key + '</th>' + '<td>' + format(avg, childDepth) + '</td>');
-      }
+        if (panel.linkTemplate) {
+          tooltipHref = tooltipHref.replace('\$' + String(i + 1), ancector.key);
+        }
+      });
 
       if (panel.linkTemplate) {
         tooltipHref = tooltipHref.replace(/\/\$\d*/g, '');
-        lines.push('<th>link</th>' + '<td><a href="' + tooltipHref + '" target="_blank">' + tooltipHref + '</a></td>');
       }
 
       var tooltip = d3.select("#sunburst-tooltip-" + ctrl.panel.id).style("left", position[0] + "px").style("top", position[1] + "px").classed("hidden", false);
 
-      lines = _.map(lines, function (l) {
-        return '<tr>' + l + '</tr>';
+      tooltip.select('table').remove();
+
+      var table = tooltip.append('table');
+      var thead = table.append('thead');
+      var tbody = table.append('tbody');
+
+      var headerCols = ['field', 'sum', 'average', 'rate'];
+      thead.append('tr').selectAll('td').data(headerCols).enter().append('td').text(function (d) {
+        return d;
       });
 
-      tooltip.select('table').remove();
-      tooltip.html('<table>' + lines.join("\n") + '</table>');
+      _.each(lines, function (l) {
+        var tr = tbody.append('tr');
+
+        tr.append('th').text(l.key).style({ 'border-left-color': l.color });
+        tr.append('td').text(l.value);
+        tr.append('td').text(l.avg);
+        tr.append('td').text(l.rate);
+      });
     }
 
     function hideTooltip() {

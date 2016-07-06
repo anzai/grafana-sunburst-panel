@@ -2,13 +2,7 @@
     position: relative;
     padding: 0;
 }
-.sunburst-legend ul {
-    display: inline;
-}
-.sunburst-legend ul li {
-    border-left: 1px solid #fff;
-    color: #fff;
-}
+
 .sunburst-tooltip {
     position: absolute;
     height: auto;
@@ -18,16 +12,22 @@
     -moz-border-radius: 3px;
     border-radius: 3px;
 }
-
 .sunburst-tooltip table {
     border-collapse: collapse;
+    border-spacing: 2px;
 }
-
-.sunburst-tooltip th {
-    border-left: #ccc 3px solid;
+.sunburst-tooltip thead td {
+    text-align: center;
+    font-weight: bold;
+}
+.sunburst-tooltip tbody th {
     padding-left: 7px;
     padding-right: 5px;
     font-weight: normal;
+}
+.sunburst-tooltip tbody td {
+    padding: 0px 10px;
+    text-align: right;
 }
 
 .hidden {

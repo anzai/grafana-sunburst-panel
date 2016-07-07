@@ -150,11 +150,12 @@ export default function link(scope, elem, attrs, ctrl) {
         });
       }
 
-      return {
-        tableRows: tableRows,
+      var rtn = {
+        tableRows:   tableRows,
         tooltipHref: tooltipHref,
-        position: { x: position[0], y: position[1] }
+        position:    { x: position[0], y: position[1] }
       };
+      return rtn;
     }
 
     var mouseout = function(d) {
@@ -251,7 +252,9 @@ export default function link(scope, elem, attrs, ctrl) {
 
       // Prepare nest
       if (depth !== panel.nodeKeys.length - 1) {
-        nest = nest.key(function(d) { return d[key]; });
+        nest = nest.key(function(d) {
+          return (d[key]) ? d[key] : '__undefined__';
+        });
       } else {
         nest = nest
           .rollup(function(v) {
@@ -260,12 +263,31 @@ export default function link(scope, elem, attrs, ctrl) {
       }
     });
 
+    var nestedValues = nest.entries(datapoints);
+    var filteredValues = removeUndefinedNodes(nestedValues);
+
     var rtn = {
       key: panel.rootKey,
-      values: nest.entries(datapoints)
+      values: filteredValues
     };
 
     return rtn;
+  }
+
+  function removeUndefinedNodes(json) {
+    _.each(json, function(jsonValue, jsonKey) {
+      if (typeof(jsonValue) === "object") {
+        if (Array.isArray(jsonValue.values) &&
+            jsonValue.values[0].key === '__undefined__')
+        {
+            json[jsonKey].values = jsonValue.values[0].values;
+        } else {
+            json[jsonKey] = removeUndefinedNodes(jsonValue);
+        }
+      }
+    });
+
+    return json;
   }
 
   function createValueFormater(style) {

@@ -3,7 +3,7 @@
 System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/utils/kbn', './d3.v3.min'], function (_export, _context) {
   "use strict";
 
-  var _, $, moment, kbn, d3;
+  var _, $, moment, kbn, d3, _typeof;
 
   function link(scope, elem, attrs, ctrl) {
     var data, panel;
@@ -139,11 +139,12 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
           });
         }
 
-        return {
+        var rtn = {
           tableRows: tableRows,
           tooltipHref: tooltipHref,
           position: { x: position[0], y: position[1] }
         };
+        return rtn;
       }
 
       var mouseout = function mouseout(d) {};
@@ -211,7 +212,7 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
         // Prepare nest
         if (depth !== panel.nodeKeys.length - 1) {
           nest = nest.key(function (d) {
-            return d[key];
+            return d[key] ? d[key] : '__undefined__';
           });
         } else {
           nest = nest.rollup(function (v) {
@@ -220,12 +221,51 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
         }
       });
 
+      var nestedValues = nest.entries(datapoints);
+      console.log(nestedValues);
+
+      var filteredValues = removeAllBlankOrNull(nestedValues);
+      console.log(filteredValues);
+
       var rtn = {
         key: panel.rootKey,
-        values: nest.entries(datapoints)
+        values: filteredValues
       };
 
+      /*
+      var arr = [];
+      nodes = rtn.values;
+      while (nodes.values) {
+      if (Array.isArray(node.values)) {
+      if (node.values[0].key === '__undefined__') {
+      node.values = values[0].values;
+      } else {
+      nodes = node.values;
+      }
+      }
+      arr.push({
+      key: nodes.key,
+      values:node.values
+      });
+      }
+      console.log(arr);
+      */
+
       return rtn;
+    }
+
+    function removeAllBlankOrNull(json) {
+      _.each(json, function (jsonValue, jsonKey) {
+        if ((typeof jsonValue === 'undefined' ? 'undefined' : _typeof(jsonValue)) === "object") {
+          if (Array.isArray(jsonValue.values) && jsonValue.values[0].key === '__undefined__') {
+            json[jsonKey].values = jsonValue.values[0].values;
+          } else {
+            json[jsonKey] = removeAllBlankOrNull(jsonValue);
+          }
+        }
+      });
+
+      return json;
     }
 
     function createValueFormater(style) {
@@ -377,7 +417,13 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
     }, function (_d3V3Min) {
       d3 = _d3V3Min.default;
     }],
-    execute: function () {}
+    execute: function () {
+      _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) {
+        return typeof obj;
+      } : function (obj) {
+        return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj;
+      };
+    }
   };
 });
 //# sourceMappingURL=rendering.js.map

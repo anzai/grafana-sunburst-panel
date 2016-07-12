@@ -167,8 +167,8 @@ System.register(['app/plugins/sdk', 'lodash', 'app/core/utils/kbn', 'app/core/ti
                   break;
               }
 
-              // Remove datapoints with null values
               if (datapoints.length > 0) {
+                // Remove datapoints with null values
                 var filteredDatapoints = _.filter(datapoints, function (dp) {
                   var nullValues = _.filter(dp, function (value) {
                     return value === null;
@@ -183,7 +183,7 @@ System.register(['app/plugins/sdk', 'lodash', 'app/core/utils/kbn', 'app/core/ti
             });
 
             rtn.push({
-              label: '__data_',
+              label: '__data__',
               datapoints: unifiedDatapoints
             });
 

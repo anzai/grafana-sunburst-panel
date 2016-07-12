@@ -53,10 +53,10 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
       if (data.length === 0 || data[0].datapoints.length === 0) {
         return;
       }
-      var rawData = data[0].datapoints;
-      var hierarchy = createHierarchy(rawData);
 
+      var rawData = data[0].datapoints;
       panel.nodeKeys = _.keys(rawData[0]);
+      var hierarchy = createHierarchy(rawData);
 
       var partition = d3.layout.partition().children(function (d) {
         return Array.isArray(d.values) ? d.values : null;

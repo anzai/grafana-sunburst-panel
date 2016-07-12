@@ -10,6 +10,8 @@ export class SunburstCtrl extends MetricsPanelCtrl {
     super($scope, $injector);
     this.$rootScope = $rootScope;
 
+    this.formatType;
+
     this.columnTypes = [
       {text: 'Number', value: 'number'},
       {text: 'String', value: 'string'},
@@ -48,16 +50,81 @@ export class SunburstCtrl extends MetricsPanelCtrl {
   }
 
   onRender() {
-    this.data = this.parseSeries(this.series);
   }
 
-  parseSeries(series) {
-    return _.map(this.series, (serie, i) => {
-      return {
-        label: serie.alias,
-        datapoints: serie.datapoints
-      };
+  parseSeries(dataList) {
+    var rtn = [];
+    var unifiedDatapoints = [];
+
+    _.each(dataList, function(data, j) {
+      // Get format type
+      var formatType;
+      if (! dataList[0].type) {
+        formatType = 'timeseries';
+      } else {
+        formatType = dataList[0].type;
+      }
+
+      // Parse
+      var datapoints = [];
+      switch (formatType) {
+      case 'docs':
+        datapoints = data.datapoints;
+        break;
+
+      case 'timeseries':
+        var key = data.field || data.target || 'key_' + j;
+
+        _.each(data.datapoints, function(row, i) {
+          if (datapoints[i] === undefined) {
+            datapoints[i] = {};
+            datapoints[i]['time_msec'] = row[1];
+
+            _.each(data.props, function(v, k) {
+              datapoints[i][k] = v;
+            });
+          }
+          datapoints[i][data.field] = row[0];
+        });
+        break;
+
+      case 'table':
+        _.each(data.rows, function(row) {
+          if (_.last(row) === null) {
+            return;
+          }
+
+          var obj = {};
+          _.each(row, function(value, i) {
+            var key = data.columns[i].text || data.target || 'key_' + i;
+            obj[key] = value;
+          });
+          datapoints.push(obj);
+        });
+        break;
+      }
+
+      // Remove datapoints with null values
+      if (datapoints.length > 0) {
+        var filteredDatapoints = _.filter(datapoints, function(dp) {
+          var nullValues = _.filter(dp, function(value) {
+            return value === null;
+          });
+          return nullValues.length === 0;
+        });
+
+        if (filteredDatapoints.length > 0) {
+          unifiedDatapoints = unifiedDatapoints.concat(filteredDatapoints);
+        }
+      }
     });
+
+    rtn.push({
+      label: '__data_',
+      datapoints: unifiedDatapoints
+    });
+
+    return rtn;
   }
 
   setUnitFormat(style, subItem) {
@@ -66,11 +133,9 @@ export class SunburstCtrl extends MetricsPanelCtrl {
   };
 
   onDataReceived(dataList) {
-    this.series = dataList.map(this.seriesHandler.bind(this));
-    this.data = this.parseSeries(this.series);
-
+    this.dataList = dataList;
+    this.data = this.parseSeries(dataList);
     this.initStyles();
-
     this.render(this.data);
   }
 

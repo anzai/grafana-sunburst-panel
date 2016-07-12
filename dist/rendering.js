@@ -222,45 +222,23 @@ System.register(['./css/sunburst.css!', 'lodash', 'jquery', 'moment', 'app/core/
       });
 
       var nestedValues = nest.entries(datapoints);
-      console.log(nestedValues);
-
-      var filteredValues = removeAllBlankOrNull(nestedValues);
-      console.log(filteredValues);
+      var filteredValues = removeUndefinedNodes(nestedValues);
 
       var rtn = {
         key: panel.rootKey,
         values: filteredValues
       };
 
-      /*
-      var arr = [];
-      nodes = rtn.values;
-      while (nodes.values) {
-      if (Array.isArray(node.values)) {
-      if (node.values[0].key === '__undefined__') {
-      node.values = values[0].values;
-      } else {
-      nodes = node.values;
-      }
-      }
-      arr.push({
-      key: nodes.key,
-      values:node.values
-      });
-      }
-      console.log(arr);
-      */
-
       return rtn;
     }
 
-    function removeAllBlankOrNull(json) {
+    function removeUndefinedNodes(json) {
       _.each(json, function (jsonValue, jsonKey) {
         if ((typeof jsonValue === 'undefined' ? 'undefined' : _typeof(jsonValue)) === "object") {
           if (Array.isArray(jsonValue.values) && jsonValue.values[0].key === '__undefined__') {
             json[jsonKey].values = jsonValue.values[0].values;
           } else {
-            json[jsonKey] = removeAllBlankOrNull(jsonValue);
+            json[jsonKey] = removeUndefinedNodes(jsonValue);
           }
         }
       });

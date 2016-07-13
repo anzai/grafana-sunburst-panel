@@ -124,24 +124,28 @@ export default function link(scope, elem, attrs, ctrl) {
 
       // d's ancectors
       var ancectors = getAncestors(d);
+      var i = 0;
       if (ancectors.length > 0) {
         if (ancectors[topDepth]) {
           totalValue = ancectors[topDepth].value;
         }
 
-        _.each(ancectors, function(node, i) {
+        _.each(ancectors, function(node) {
           tableRows.ancectors.push(
             tooltipLine(node, (topDepth <= node.depth) ? totalValue : null)
           );
 
           if (panel.linkTemplate) {
-            tooltipHref = tooltipHref.replace('\$' + String(i + 1), node.key);
+            tooltipHref = tooltipHref.replace('\$' + String(i++), node.key);
           }
         });
       }
 
       // d itself
       tableRows.node.push(tooltipLine(d, totalValue));
+      if (panel.linkTemplate) {
+        tooltipHref = tooltipHref.replace('\$' + String(i), d.key);
+      }
 
       // d's Children
       if (d.children && d.children.length > 0) {

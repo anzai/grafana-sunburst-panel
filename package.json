@@ -26,7 +26,6 @@
     "babel-plugin-transform-es2015-for-of": "^6.5.0",
     "babel-preset-es2015": "^6.5.0",
     "lodash": "~4.0.0",
-    "vis": "",
     "browserify": "",
     "babelify": "",
     "uglify-js": ""

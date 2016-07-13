@@ -29,18 +29,16 @@ If you click an node in the graph, the graph transforms to zoom and show the chi
 
 ![Drill down](https://raw.githubusercontent.com/anzai/grafana-sunburst-panel/master/src/img/drilldown.png)
 
-### Options
+## Options
 
 ![options](https://raw.githubusercontent.com/anzai/grafana-sunburst-panel/master/src/img/options.png)
 
-![unit](https://raw.githubusercontent.com/anzai/grafana-sunburst-panel/master/src/img/unit.png)
-
-* Link template
+### Link template
 
 If link template isn't blank, tooltip contains a link with values of node and its ancectors.
 You can use $1, $2, $3 ... to add values to the link.
 
-* Nodes
+### Nodes
 
 You can specify fields' types of a node.
 
@@ -53,6 +51,8 @@ You can specify fields' types of a node.
 <dd>Convert numbers as unix timestamp to date text in specified format.</dd>
 </dl>
 
+Ex.)<br>
+![unit](https://raw.githubusercontent.com/anzai/grafana-sunburst-panel/master/src/img/unit.png)
 
 ## Supported datasources and formats
 

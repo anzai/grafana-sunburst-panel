@@ -5,10 +5,10 @@
   "description": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anzai/grafana-sunburst-panel"
+    "url": "https://github.com/sraoss/grafana-sunburst-panel"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "SRA OSS, Inc. Japan",
+  "license": "Apache 2.0",
   "devDependencies": {
     "grunt": "~0.4.5",
     "babel": "~6.5.1",

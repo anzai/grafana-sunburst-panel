@@ -6,19 +6,18 @@
   "info": {
     "description": "SunBurst panel for grafana",
     "author": {
-      "name": "Nozomi Anzai",
-      "url": ""
+      "name": "SRA OSS, Inc. Japan",
+      "url": "http://www.sraoss.co.jp/"
     },
     "keywords": ["sunburst", "panel"],
     "links": [
-      {"name": "Project site", "url": "https://github.com/anzai/grafana-sunburst-panel"},
-      {"name": "Blog Post", "url": ""},
-      {"name": "MIT License", "url": ""}
+      {"name": "Project site", "url": "https://github.com/sraoss/grafana-sunburst-panel"},
+      {"name": "Apache 2.0", "url": ""}
     ],
     "screenshots": [
     ],
     "version": "1.0",
-    "updated": "2016-06-22"
+    "updated": "2016-07-13"
   },
 
   "dependencies": {

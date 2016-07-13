@@ -24,7 +24,7 @@ module.exports = function(grunt) {
       },
       pluginDef: {
         expand: true,
-        src: ['plugin.json', 'README.md'],
+        src: ['plugin.json', 'README', 'NOTICE'],
         dest: 'dist',
       },
       js_to_dist: {

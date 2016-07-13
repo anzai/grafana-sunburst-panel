@@ -1,13 +1,13 @@
 # grafana-sunburst-panel
 
-The sunburst panel is a more powerful pie chart.
-It can contain nested group data.
+The sunburst panel is a multi-level pie chart.
+It can contain hierarchical data.
 
 ![Graph](https://raw.githubusercontent.com/anzai/grafana-sunburst-panel/master/src/img/graph.png)
 
 ## Features
 
-### Tooltips
+### Tooltip
 
 Tooltip is shown on mouse over of each arch node.
 Tooltip of a node shows information about same-leveled nodes and its child nodes.
@@ -28,6 +28,31 @@ Tooltip of a node shows information about same-leveled nodes and its child nodes
 If you click an node in the graph, the graph transforms to zoom and show the child nodes.
 
 ![Drill down](https://raw.githubusercontent.com/anzai/grafana-sunburst-panel/master/src/img/drilldown.png)
+
+### Options
+
+![options](https://raw.githubusercontent.com/anzai/grafana-sunburst-panel/master/src/img/options.png)
+
+![unit](https://raw.githubusercontent.com/anzai/grafana-sunburst-panel/master/src/img/unit.png)
+
+* Link template
+
+If link template isn't blank, tooltip contains a link with values of node and its ancectors.
+You can use $1, $2, $3 ... to add values to the link.
+
+* Nodes
+
+You can specify fields' types of a node.
+
+<dl>
+<dt>Number</dt>
+<dd>Add unit (%, $, bits/sec, ...)</dd>
+<dt>String</dt>
+<dd>Do nothing and just display.</dd>
+<dt>Date</dt>
+<dd>Convert numbers as unix timestamp to date text in specified format.</dd>
+</dl>
+
 
 ## Supported datasources and formats
 
